@@ -1,22 +1,30 @@
 
 var DataTableCollection = Backbone.Collection.extend({
 
+    headers: {},
     sort: '',
     page: 1,
     page_size: 10,
     metadata: {},
+    loading: false,
 
     load: function(on_success) {
-        this.fetch({
-            headers: this.headers,
-            data: {
-                sort: this.sort,
-                page: this.page,
-                page_size: this.page_size
-            },
-            reset: true,
-            success: on_success
-        });
+        var self = this;
+        if (!self.loading) {
+            self.loading = true;
+            self.fetch({
+                headers: self.get_request_headers(),
+                data: self.get_request_data(),
+                reset: true,
+                success: function(collection, response, options) {
+                    self.loading = false;
+                    if (on_success) on_success(collection, response, options);
+                },
+                error: function(collection, response, options) {
+                    self.loading = false;
+                }
+            });
+        }
     },
 
     reload: function() {
@@ -31,8 +39,24 @@ var DataTableCollection = Backbone.Collection.extend({
         return response.result;
     },
 
+    is_loading: function() {
+        return this.loading;
+    },
+
+    get_request_headers: function() {
+        return {};
+    },
+
+    get_request_data: function() {
+        return {
+            sort: this.sort,
+            page: this.page,
+            page_size: this.page_size
+        };
+    },
+
     set_sort: function(sort) {
-        if (this.sort != sort) {
+        if (!self.loading && this.sort != sort) {
             this.sort = sort;
             this.page = 1;
             this.reload();
@@ -40,14 +64,14 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_page: function(page) {
-        if (this.page != page) {
+        if (!self.loading && this.page != page) {
             this.page = page;
             this.reload();
         }
     },
 
     set_page_size: function(page_size) {
-        if (this.page_size != page_size) {
+        if (!self.loading && this.page_size != page_size) {
             this.page_size = page_size;
             this.page = 1;
             this.reload();
@@ -143,7 +167,6 @@ var DataTable = Backbone.View.extend({
     },
 
     render_tbody: function() {
-        console.log('render_tbody');
         var self = this;
         var tbody = $('tbody', self.el);
         if (tbody.length == 0) {
@@ -201,6 +224,7 @@ var DataTable = Backbone.View.extend({
     },
 
     handle_sort: function(e) {
+        if (this.collection.is_loading()) return;
         var th = $(e.target).closest('th');
         var tr = th.parent();
         var asc = th.hasClass('asc');
