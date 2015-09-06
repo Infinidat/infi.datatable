@@ -125,12 +125,15 @@ var DataTable = Backbone.View.extend({
         _.each(self.columns, function(column) {
             self.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
         });
+        self.load_state();
         self.collection.on('reset', _.bind(self.render_tbody, self));
     },
 
+    /* Rendering */
+
     render: function() {
         this.$el.html('<caption style="position: relative; padding: 0;"></caption><thead></thead><tbody></tbody>');
-        this.$el.css({'table-layout': 'fixed'});
+        this.$el.addClass('infi-datatable').css({'table-layout': 'fixed'});
         this.style = $('<style/>');
         $('head').append(this.style);
         this.render_caption();
@@ -187,6 +190,13 @@ var DataTable = Backbone.View.extend({
         }
     },
 
+    render_css: function() {
+        var template = _.template(this.css_template);
+        this.style.html(template({self: this}));
+    },
+
+    /* Getting info about columns */
+
     column_title: function(column) {
         if (_.has(column, 'title')) return column.title;
         var s = column.name.replace('_', ' ');
@@ -206,6 +216,29 @@ var DataTable = Backbone.View.extend({
         return this.visibility[column.name];
     },
 
+    /* Loading and saving the table state in session storage */
+
+    get_storage_key: function() {
+        return 'infi_datatable_' + this.id;
+    },
+
+    save_state: function() {
+        var state = {visibility: this.visibility};
+        sessionStorage.setItem(this.get_storage_key(), JSON.stringify(state));
+    },
+
+    load_state: function() {
+        try {
+            var state = JSON.parse(sessionStorage.getItem(this.get_storage_key()))
+            _.extend(this.visibility, state.visibility);
+        }
+        catch (e) {
+            console.log(e);
+        }
+    },
+
+    /* Event handlers */
+
     handle_settings: function(e) {
         $(e.target).closest('button').next().toggleClass('hidden');
     },
@@ -215,12 +248,8 @@ var DataTable = Backbone.View.extend({
         $('.settings input', this.el).each(function() {
             self.visibility[$(this).attr('name')] = $(this).is(':checked');
         });
+        self.save_state();
         self.render_css();
-    },
-
-    render_css: function() {
-        var template = _.template(this.css_template);
-        this.style.html(template({self: this}));
     },
 
     handle_sort: function(e) {
