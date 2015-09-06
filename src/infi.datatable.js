@@ -1,7 +1,6 @@
 
 var DataTableCollection = Backbone.Collection.extend({
 
-    headers: {},
     sort: '',
     page: 1,
     page_size: 10,
@@ -96,7 +95,7 @@ var DataTable = Backbone.View.extend({
 
     row_template:      '<tr data-row-id="<%- model.id %>">' +
                        '    <% _.each(columns, function(column, index) { %>' +
-                       '        <td class="td_<%- column.name %>"><%- values[index] %></td>' +
+                       '        <td class="td_<%- column.name %>"><%= values[index] %></td>' +
                        '    <% }) %>' +
                        '</tr>',
 
