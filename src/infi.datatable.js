@@ -293,6 +293,7 @@ var DataTablePaginator = Backbone.View.extend({
                 page: self.collection.metadata.page,
                 maxVisible: 5,
                 firstLastUse: true,
+                wrapClass: 'pagination pagination-lg',
                 first: '<i class="glyphicon glyphicon-step-backward"></i>',
                 last: '<i class="glyphicon glyphicon-step-forward">',
                 prev: '<i class="glyphicon glyphicon-backward"></i>',
