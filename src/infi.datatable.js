@@ -5,6 +5,7 @@ var DataTableCollection = Backbone.Collection.extend({
     page: 1,
     page_size: 10,
     metadata: {},
+    filters: {},
     loading: false,
 
     load: function(on_success) {
@@ -47,11 +48,7 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     get_request_data: function() {
-        return {
-            sort: this.sort,
-            page: this.page,
-            page_size: this.page_size
-        };
+        return _.extend({sort: this.sort, page: this.page, page_size: this.page_size}, this.filters);
     },
 
     set_sort: function(sort) {
@@ -72,6 +69,14 @@ var DataTableCollection = Backbone.Collection.extend({
     set_page_size: function(page_size) {
         if (!self.loading && this.page_size != page_size) {
             this.page_size = page_size;
+            this.page = 1;
+            this.reload();
+        }
+    },
+
+    set_filters: function(filters) {
+        if (!self.loading) {
+            this.filters = filters;
             this.page = 1;
             this.reload();
         }
@@ -329,3 +334,84 @@ var DataTableCounter = Backbone.View.extend({
     }
 
 });
+
+
+var DataTableQueryBuilder = Backbone.View.extend({
+
+    operators: [
+        {type: 'contains',     to_api: 'like',      nb_inputs: 1, multiple: false, apply_to: ['string']},
+        {type: 'not_contains', to_api: 'unlike',    nb_inputs: 1, multiple: false, apply_to: ['string']},
+        {type: '=',            to_api: 'eq',        nb_inputs: 1, multiple: false, apply_to: ['string', 'number', 'boolean']},
+        {type: '!=',           to_api: 'ne',        nb_inputs: 1, multiple: false, apply_to: ['string', 'number', 'boolean']},
+        {type: '<',            to_api: 'lt',        nb_inputs: 1, multiple: false, apply_to: ['number', 'datetime']},
+        {type: '<=',           to_api: 'le',        nb_inputs: 1, multiple: false, apply_to: ['number', 'datetime']},
+        {type: '>',            to_api: 'gt',        nb_inputs: 1, multiple: false, apply_to: ['number', 'datetime']},
+        {type: '>=',           to_api: 'ge',        nb_inputs: 1, multiple: false, apply_to: ['number', 'datetime']},
+        {type: 'in',           to_api: 'in',        nb_inputs: 1, multiple: true,  apply_to: []},
+        {type: 'not_in',       to_api: 'out',       nb_inputs: 1, multiple: true,  apply_to: []},
+        {type: 'between',      to_api: 'between',   nb_inputs: 2, multiple: false, apply_to: ['number', 'datetime']},
+    ],
+
+    initialize: function(options) {
+        this.filter_fields = options.filter_fields;
+    },
+
+    render: function() {
+        this.$el.queryBuilder({
+            filters: this.filter_fields,
+            operators: this.operators,
+            plugins: {
+                'bt-tooltip-errors': { delay: 100 },
+                'filter-description': {}
+            },
+            allow_empty: true,
+            allow_groups: false,
+            conditions: ['AND']
+        });
+    },
+
+    update_filter: function(options, field_name) {
+        for (var i = 0; i < this.filter_fields.length; i++) {
+            filter_field = this.filter_fields[i];
+            if (filter_field.id == field_name) {
+                $.extend(filter_field, options);
+                return;
+            }
+        }
+        alert('Cannot update filter field ' + field_name);
+    },
+
+    get_rules: function() {
+        return this.$el.queryBuilder('getRules');
+    },
+
+    set_rules: function(rules) {
+        return this.$el.queryBuilder('setRules', rules);
+    },
+
+    validate: function() {
+        return this.$el.queryBuilder('validate');
+    },
+
+    operator_to_api: function(operator) {
+        return _.findWhere(this.operators, {type: operator}).to_api;
+    },
+
+    get_query_params: function() {
+        var self = this;
+        var rules = self.get_rules();
+        var params = {}
+        _.each(rules.rules, function(rule) {
+            params[rule.id] = self.operator_to_api(rule.operator) + ':' + rule.value.toString();
+        });
+        return params
+    },
+
+    apply_to_collection: function() {
+        if (this.validate()) {
+            this.collection.set_filters(this.get_query_params());
+        }
+    }
+
+});
+
