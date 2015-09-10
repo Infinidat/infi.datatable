@@ -336,6 +336,47 @@ var DataTableCounter = Backbone.View.extend({
 });
 
 
+var DataTableSimpleQuery = Backbone.View.extend({
+
+    template: '<div class="form-group has-feedback">' +
+              '    <input name="<%= field_name %>" placeholder="Search" class="form-control input-lg" maxlength="50">' +
+              '    <span class="glyphicon glyphicon-search form-control-feedback"></span>' +
+              '</div>',
+
+    events: {
+        'keypress': 'handle_keypress'
+    },
+
+    initialize: function(options) {
+        this.field_name = options.field_name || 'q';
+    },
+
+    render: function() {
+        var html = _.template(this.template)({
+            field_name: this.field_name,
+        });
+        this.$el.html(html);
+    },
+
+    handle_keypress: function(e) {
+        if (e.keyCode == 13) {
+            this.apply_to_collection();
+        }
+    },
+
+    get_query_params: function() {
+        var params = {}
+        params[this.field_name] = this.$el.find('input').val();
+        return params;
+    },
+
+    apply_to_collection: function() {
+        this.collection.set_filters(this.get_query_params());
+    }
+
+});
+
+
 var DataTableQueryBuilder = Backbone.View.extend({
 
     operators: [
