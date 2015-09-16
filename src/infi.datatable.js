@@ -89,7 +89,7 @@ var DataTable = Backbone.View.extend({
 
     tagName: "table",
 
-    className: "table table-hover table-bordered",
+    className: "table table-hover table-bordered infi-datatable",
 
     events: {
         'click .settings > button': 'handle_settings',
@@ -137,7 +137,7 @@ var DataTable = Backbone.View.extend({
 
     render: function() {
         this.$el.html('<caption style="position: relative; padding: 0;"></caption><thead></thead><tbody></tbody>');
-        this.$el.addClass('infi-datatable').css({'table-layout': 'fixed'});
+        this.$el.css({'table-layout': 'fixed'});
         this.style = $('<style/>');
         $('head').append(this.style);
         this.render_caption();
@@ -284,6 +284,7 @@ var DataTable = Backbone.View.extend({
 var DataTablePaginator = Backbone.View.extend({
 
     tagName: 'nav',
+    className: "infi-datatable-paginator",
 
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
@@ -315,6 +316,7 @@ var DataTablePaginator = Backbone.View.extend({
 var DataTableCounter = Backbone.View.extend({
 
     tagName: 'span',
+    className: "infi-datatable-counter",
 
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
@@ -338,13 +340,15 @@ var DataTableCounter = Backbone.View.extend({
 
 var DataTableSimpleQuery = Backbone.View.extend({
 
+    className: "infi-datatable-simple-query",
+
     template: '<div class="form-group has-feedback">' +
               '    <input name="<%= field_name %>" placeholder="Search" class="form-control input-lg" maxlength="50">' +
               '    <span class="glyphicon glyphicon-search form-control-feedback"></span>' +
               '</div>',
 
     events: {
-        'keypress': 'handle_keypress'
+        'input': 'handle_change'
     },
 
     initialize: function(options) {
@@ -358,11 +362,12 @@ var DataTableSimpleQuery = Backbone.View.extend({
         this.$el.html(html);
     },
 
-    handle_keypress: function(e) {
-        if (e.keyCode == 13) {
+    handle_change: _.debounce(
+        function(e) {
             this.apply_to_collection();
-        }
-    },
+        },
+        300
+    ),
 
     get_query_params: function() {
         var params = {}
@@ -378,6 +383,8 @@ var DataTableSimpleQuery = Backbone.View.extend({
 
 
 var DataTableQueryBuilder = Backbone.View.extend({
+
+    className: "infi-datatable-query-builder",
 
     operators: [
         {type: 'contains',     to_api: 'like',      nb_inputs: 1, multiple: false, apply_to: ['string']},
