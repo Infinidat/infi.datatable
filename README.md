@@ -10,7 +10,8 @@ Dependencies
 * Underscore.js 1.8+ (http://underscorejs.org/)
 * Backbone.js 1.2+ (http://backbonejs.org/)
 * Bootstrap 3.x (http://getbootstrap.com/)
-* Bootpag 1.0.7+ (http://botmonster.com/jquery-bootpag/)
+* Bootpag 1.0.7+ (http://botmonster.com/jquery-bootpag/) - required for DataTablePaginator
+* jQuery QueryBuilder 2.3+ (http://mistic100.github.io/jQuery-QueryBuilder/) - required for DataTableQueryBuilder
 
 
 Classes
@@ -95,7 +96,7 @@ By default the table gets assigned the Bootstrap classes `table`, `table-hover` 
 but you can change this by overriding the view's `className` property.
 
 Each table cell gets a class derived from its column name. For example if the column name is "timestamp",
-the cells' class will be `th_timestamp` and `td_timestamp`. This makes it easy to style the each column separately.
+the cells' class will be `th_timestamp` and `td_timestamp`. This makes it easy to style each column separately.
 
 Table header cells also get the classes `sortable` (if the column is sortable), `asc` (when sorted in ascending order)
 and `desc` (when sorted in descending order).
@@ -127,3 +128,44 @@ var counter = new DataTableCounter({
 });
 $('.container').append(counter.el).append(' total events');
 ```
+
+
+### DataTableSimpleQuery
+
+Use this view to display a single search field for filtering the collection. The contents of the field is sent
+to the collection by calling its `set_filters` function, and this triggers a reloading of the collection from the server. It is up to the server to filter the collection according to the search terms.
+
+Usage example:
+```javascript
+var search = new DataTableSimpleQuery({
+    collection: events,
+    field_name: 'search_terms'
+});
+search.render();
+$('#search_container').html(search.el);
+```
+
+The optional `field_name` specifies the name of the query parameter which will be sent to the server. The default name is `q`.
+
+### DataTableQueryBuilder
+
+A more advanced filtering view that uses jQuery QueryBuilder (http://mistic100.github.io/jQuery-QueryBuilder/).
+It allows the user to build a filtering expression on one or more fields in the collection.
+
+For example:
+```javascript
+var qb = new DataTableQueryBuilder({
+    collection: events,
+    filter_fields: [
+        {id: 'timestamp', type: 'datetime'},
+        {id: 'seqnum', type: 'integer'},
+        {id: 'description', type: 'string'},
+        {id: 'level', type: 'string', value: ['INFO', 'WARNING', 'ERROR'], input: 'radio'}
+    ]
+});
+$('#search_container').html(qb.el);
+qb.render();
+```
+
+The `filter_fields` array defines which fields can be filtered on. Refer to the jQuery QueryBuilder documentation
+for details about the options available when defining such fields.
