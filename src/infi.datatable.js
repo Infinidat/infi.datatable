@@ -203,7 +203,7 @@ var DataTable = Backbone.View.extend({
 
     column_title: function(column) {
         if (_.has(column, 'title')) return column.title;
-        var s = column.name.replace('_', ' ');
+        var s = column.name.replace(/_/g, ' ');
         s = s.replace(/\w\S*/g, function(s) {
             return s.charAt(0).toUpperCase() + s.substr(1).toLowerCase();
         });
