@@ -3,6 +3,18 @@ Overview
 This project provides Backbone/Bootstrap components for displaying Infinidat-style collections.
 It uses the server's REST API for sorting and pagination.
 
+Features
+--------
+* Plain ol' HTML table that uses Bootstrap styles.
+* Table data is loaded from the server via AJAX.
+* Support for custom rendering of table cells.
+* Single-column sorting.
+* Pagination.
+* Simple or advanced search/filter.
+* The user can choose which columns to display, and the selection is saved in session storage.
+* Full BACK button support.
+
+Not supported yet: multi-column sorting; column resize; column reorder.
 
 Dependencies
 ------------
@@ -52,6 +64,7 @@ var events = new Events();
 You may also want to override the `page_size` property to increase it from the default value of 10,
 and the `get_request_headers` function if any custom headers should be sent to server when loading the collection.
 
+**Note:** currently there can be only one `DataTableCollection` on the page, since it uses the page URL to save its state (for BACK button support).
 
 ### DataTable
 

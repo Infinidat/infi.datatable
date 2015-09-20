@@ -8,6 +8,57 @@ var DataTableCollection = Backbone.Collection.extend({
     filters: {},
     loading: false,
 
+    initialize: function(models, options) {
+        // If there's a query string in the URL, restore the collection state from it
+        var self = this;
+        if (window.location.search) {
+            self._restore_state();
+        }
+        // Update the collection state when BACK button is pressed
+        window.addEventListener('popstate', function(e) {
+            if (e.state) {
+                self._restore_state();
+            }
+            else {
+                self._reset_state();
+            }
+        });
+    },
+
+    _restore_state: function() {
+        // Parse query string
+        var params = {};
+        window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str, key, value) {
+            params[key] = decodeURIComponent(value);
+        });
+        // Get the parameters we know
+        this.sort = params.sort || this.sort;
+        this.page = parseInt(params.page || this.page);
+        this.page_size = parseInt(params.page_size || this.page_size);
+        // All the rest are persumed to be filters
+        this.filters = _.omit(params, 'sort', 'page', 'page_size');
+        // Trigger an event to allow views to update their state too
+        this.trigger('state:restore');
+        this.reload(false);
+    },
+
+    _reset_state: function() {
+        this.sort = '';
+        this.page = 1;
+        this.page_size = 10;
+        this.filters = {};
+        this.trigger('state:reset');
+        this.reload(false);
+    },
+
+    _save_state: function() {
+        var state = this.get_request_data();
+        var query_string = '?' + $.param(state);
+        if (query_string != window.location.search) {
+            history.pushState(state, '', query_string);
+        }
+    },
+
     load: function(on_success) {
         var self = this;
         if (!self.loading) {
@@ -27,9 +78,13 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
-    reload: function() {
+    reload: function(save_state) {
         // Load the collection, unless it hasn't been loaded previously
+        // Also pushes the state of the collection to the browser history, for BACK button support
         if (_.keys(this.metadata).length > 0) {
+            if (save_state) {
+                this._save_state();
+            }
             this.load();
         }
     },
@@ -55,14 +110,14 @@ var DataTableCollection = Backbone.Collection.extend({
         if (!self.loading && this.sort != sort) {
             this.sort = sort;
             this.page = 1;
-            this.reload();
+            this.reload(true);
         }
     },
 
     set_page: function(page) {
         if (!self.loading && this.page != page) {
             this.page = page;
-            this.reload();
+            this.reload(true);
         }
     },
 
@@ -70,7 +125,7 @@ var DataTableCollection = Backbone.Collection.extend({
         if (!self.loading && this.page_size != page_size) {
             this.page_size = page_size;
             this.page = 1;
-            this.reload();
+            this.reload(true);
         }
     },
 
@@ -78,7 +133,7 @@ var DataTableCollection = Backbone.Collection.extend({
         if (!self.loading) {
             this.filters = filters;
             this.page = 1;
-            this.reload();
+            this.reload(true);
         }
     }
 
@@ -119,7 +174,11 @@ var DataTable = Backbone.View.extend({
                        '        display: <% print(self.column_visible(c) ? "table-cell" : "none") %>;' +
                        '        width: <%- self.column_width(c) %>;' +
                        '    }' +
-                       '<% }) %>',
+                       '<% }) %>' +
+                       '.infi-datatable th .glyphicon-chevron-down { display: none; }' +
+                       '.infi-datatable th .glyphicon-chevron-up { display: none; }' +
+                       '.infi-datatable th.desc .glyphicon-chevron-down { display: inline-block; }' +
+                       '.infi-datatable th.asc .glyphicon-chevron-up { display: inline-block; }',
 
     initialize: function(options) {
         var self = this;
@@ -131,6 +190,7 @@ var DataTable = Backbone.View.extend({
         });
         self.load_state();
         self.collection.on('reset', _.bind(self.render_tbody, self));
+        self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
     },
 
     /* Rendering */
@@ -144,6 +204,7 @@ var DataTable = Backbone.View.extend({
         this.render_thead();
         this.render_tbody();
         this.render_css();
+        this.handle_collection_state();
         return this;
     },
 
@@ -167,7 +228,7 @@ var DataTable = Backbone.View.extend({
             var title = self.column_title(column);
             var th = $('<th/>').text(title).addClass('th_' + column.name).data('column', column.name);
             if (column.sortable != false) {
-                th.addClass('sortable').append('<i class="glyphicon"></i>');
+                th.addClass('sortable').append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
             }
             tr.append(th);
         });
@@ -260,11 +321,9 @@ var DataTable = Backbone.View.extend({
         if (this.collection.is_loading()) return;
         var th = $(e.target).closest('th');
         var tr = th.parent();
-        var asc = th.hasClass('asc');
+        var asc = !th.hasClass('asc');
         tr.find('th').removeClass('asc desc')
-        tr.find('i').removeClass('glyphicon-chevron-down glyphicon-chevron-up');
-        th.addClass(asc ? 'desc' : 'asc');
-        th.find('i').addClass(asc ? 'glyphicon-chevron-down' : 'glyphicon-chevron-up');
+        th.addClass(asc ? 'asc' : 'desc');
         this.collection.set_sort((asc ? '' : '-') + th.data('column'));
     },
 
@@ -276,6 +335,18 @@ var DataTable = Backbone.View.extend({
             var model = this.collection.get(id);
             this.row_click_callback(model);
         }
+    },
+
+    handle_collection_state: function() {
+        // Mark the sorted column
+        var sort = this.collection.sort;
+        var dir = 'asc';
+        if (sort.startsWith('-')) {
+            sort = sort.substr(1);
+            dir = 'desc';
+        }
+        $('thead th', this.el).removeClass('asc desc');
+        $('thead .th_' + sort, this.el).addClass(dir);
     }
 
 });
@@ -343,7 +414,7 @@ var DataTableSimpleQuery = Backbone.View.extend({
     className: "infi-datatable-simple-query",
 
     template: '<div class="form-group has-feedback">' +
-              '    <input name="<%= field_name %>" placeholder="Search" class="form-control input-lg" maxlength="50">' +
+              '    <input name="<%= field_name %>" placeholder="Search" class="form-control input-lg" maxlength="50" value="<%= field_value %>">' +
               '    <span class="glyphicon glyphicon-search form-control-feedback"></span>' +
               '</div>',
 
@@ -353,11 +424,14 @@ var DataTableSimpleQuery = Backbone.View.extend({
 
     initialize: function(options) {
         this.field_name = options.field_name || 'q';
+        this.collection.on('state:reset state:restore', _.bind(this.handle_collection_state, this));
+
     },
 
     render: function() {
         var html = _.template(this.template)({
             field_name: this.field_name,
+            field_value: this.collection.filters[this.field_name] || ''
         });
         this.$el.html(html);
     },
@@ -377,6 +451,11 @@ var DataTableSimpleQuery = Backbone.View.extend({
 
     apply_to_collection: function() {
         this.collection.set_filters(this.get_query_params());
+    },
+
+    handle_collection_state: function() {
+        // Update the contents of the search field
+        $('input', this.el).val(this.collection.filters[this.field_name]);
     }
 
 });
@@ -402,6 +481,7 @@ var DataTableQueryBuilder = Backbone.View.extend({
 
     initialize: function(options) {
         this.filter_fields = options.filter_fields;
+        this.collection.on('state:reset state:restore', _.bind(this.handle_collection_state, this));
     },
 
     render: function() {
@@ -416,6 +496,7 @@ var DataTableQueryBuilder = Backbone.View.extend({
             allow_groups: false,
             conditions: ['AND']
         });
+        this.handle_collection_state();
     },
 
     update_filter: function(options, field_name) {
@@ -442,10 +523,17 @@ var DataTableQueryBuilder = Backbone.View.extend({
     },
 
     operator_to_api: function(operator) {
+        // Convert Query Builder operator name to API operator name
         return _.findWhere(this.operators, {type: operator}).to_api;
     },
 
+    api_to_operator: function(api_op) {
+        // Convert API operator name to Query Builder operator name
+        return _.findWhere(this.operators, {to_api: api_op}).type;
+    },
+
     get_query_params: function() {
+        // Convert the current rules into API query params
         var self = this;
         var rules = self.get_rules();
         var params = {}
@@ -458,6 +546,31 @@ var DataTableQueryBuilder = Backbone.View.extend({
     apply_to_collection: function() {
         if (this.validate()) {
             this.collection.set_filters(this.get_query_params());
+        }
+    },
+
+    handle_collection_state: function() {
+        // Convert the collection's filters into Query Builder rules
+        var self = this;
+        var rules = [];
+        _.each(self.collection.filters, function(value, key) {
+            var operator = value.split(':')[0];
+            var value = value.split(':')[1];
+            if (operator == 'in' || operator == 'out' || operator == 'between') {
+                value = value.split(',');
+            }
+            rules.push({
+                id: key,
+                operator: self.api_to_operator(operator),
+                value: value
+            });
+        });
+        // Initialize the Query Builder
+        if (rules.length) {
+            self.$el.queryBuilder('setRules', {condition: 'AND', rules: rules});
+        }
+        else {
+            self.$el.queryBuilder('reset');
         }
     }
 
