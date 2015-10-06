@@ -360,7 +360,22 @@ var DataTable = Backbone.View.extend({
 var DataTablePaginator = Backbone.View.extend({
 
     tagName: 'nav',
-    className: "infi-datatable-paginator",
+    className: 'infi-datatable-paginator',
+
+    template: '&nbsp;<div class="btn-group" style="display: inline; float: right;">' +
+              '    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">' +
+              '        <i class="glyphicon glyphicon-cog"></i>' +
+              '    </button>' +
+              '    <ul class="dropdown-menu">' +
+              '        <% _.each(page_sizes, function(size) { %>' +
+              '            <li><a href="#" class="menu-page-size" data-size="<%= size %>">Page Size: <%= size %></i></a></li>' +
+              '        <% }); %>' +
+              '    </ul>' +
+              '</div>',
+
+    events: {
+        'click .menu-page-size': 'handle_page_size',
+    },
 
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
@@ -384,6 +399,26 @@ var DataTablePaginator = Backbone.View.extend({
                 self.collection.set_page(num);
             });
         }
+        var settings = _.template(self.template)({page_sizes: [10, 30, 100]});
+        self.$el.append(settings);
+        self.mark_current_page_size();
+    },
+
+    mark_current_page_size: function() {
+        var size = this.collection.page_size;
+        $('.menu-page-size', this.el).each(function() {
+            var a = $(this);
+            a.find('i').detach();
+            if (a.attr('data-size') == size) {
+                a.append(' <i class="glyphicon glyphicon-ok"></i>');
+            }
+        });
+    },
+
+    handle_page_size: function(e) {
+        e.preventDefault();
+        var size = $(e.target).attr('data-size');
+        this.collection.set_page_size(size);
     }
 
 });
