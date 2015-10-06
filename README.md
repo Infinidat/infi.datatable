@@ -61,6 +61,15 @@ var Events = DataTableCollection.extend({
 var events = new Events();
 ```
 
+You can specify the default sorting for the collection:
+
+```javascript
+var Events = DataTableCollection.extend({
+    url: 'http://localhost/api/rest/events/',
+    sort: '-timestamp'
+});
+```
+
 You may also want to override the `page_size` property to increase it from the default value of 10,
 and the `get_request_headers` function if any custom headers should be sent to server when loading the collection.
 

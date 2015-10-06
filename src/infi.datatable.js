@@ -175,6 +175,8 @@ var DataTable = Backbone.View.extend({
                        '        width: <%- self.column_width(c) %>;' +
                        '    }' +
                        '<% }) %>' +
+                       '.infi-datatable { table-layout: fixed; }' +
+                       '.infi-datatable caption { position: relative; padding: 0; }' +
                        '.infi-datatable th .glyphicon-chevron-down { display: none; }' +
                        '.infi-datatable th .glyphicon-chevron-up { display: none; }' +
                        '.infi-datatable th.desc .glyphicon-chevron-down { display: inline-block; }' +
@@ -196,8 +198,7 @@ var DataTable = Backbone.View.extend({
     /* Rendering */
 
     render: function() {
-        this.$el.html('<caption style="position: relative; padding: 0;"></caption><thead></thead><tbody></tbody>');
-        this.$el.css({'table-layout': 'fixed'});
+        this.$el.html('<caption></caption><thead></thead><tbody></tbody>');
         this.style = $('<style/>');
         $('head').append(this.style);
         this.render_caption();
@@ -260,6 +261,13 @@ var DataTable = Backbone.View.extend({
         this.style.html(template({self: this}));
     },
 
+    render_sorting: function(th, asc) {
+        // Mark the given th cell as sorted, in ascending or descending order.
+        var tr = th.parent();
+        tr.find('th').removeClass('asc desc')
+        th.addClass(asc ? 'asc' : 'desc');
+    },
+
     /* Getting info about columns */
 
     column_title: function(column) {
@@ -320,10 +328,8 @@ var DataTable = Backbone.View.extend({
     handle_sort: function(e) {
         if (this.collection.is_loading()) return;
         var th = $(e.target).closest('th');
-        var tr = th.parent();
         var asc = !th.hasClass('asc');
-        tr.find('th').removeClass('asc desc')
-        th.addClass(asc ? 'asc' : 'desc');
+        this.render_sorting(th, asc);
         this.collection.set_sort((asc ? '' : '-') + th.data('column'));
     },
 
@@ -340,13 +346,12 @@ var DataTable = Backbone.View.extend({
     handle_collection_state: function() {
         // Mark the sorted column
         var sort = this.collection.sort;
-        var dir = 'asc';
+        var asc = true;
         if (sort.startsWith('-')) {
             sort = sort.substr(1);
-            dir = 'desc';
+            asc = false;
         }
-        $('thead th', this.el).removeClass('asc desc');
-        $('thead .th_' + sort, this.el).addClass(dir);
+        this.render_sorting($('thead .th_' + sort, this.el), asc);
     }
 
 });
