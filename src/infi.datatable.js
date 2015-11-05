@@ -153,7 +153,7 @@ var DataTable = Backbone.View.extend({
         'click tbody tr':           'handle_row_click'
     },
 
-    row_template:      '<tr data-row-id="<%- model.id %>">' +
+    row_template:      '<tr data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
                        '        <td class="td_<%- column.name %>"><%= values[index] %></td>' +
                        '    <% }) %>' +
@@ -186,6 +186,7 @@ var DataTable = Backbone.View.extend({
         var self = this;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
+        self.focus = options.focus || null;
         self.visibility = {}
         _.each(self.columns, function(column) {
             self.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
@@ -251,7 +252,8 @@ var DataTable = Backbone.View.extend({
                     if (column.render) value = column.render({model: model, column: column, value: value});
                     values.push(value);
                 });
-                tbody.append(template({model: model, columns: self.columns, values: values}));
+                var rowClassNameExpression = model.id == self.focus ? 'class="focus"' : '';
+                tbody.append(template({model: model, columns: self.columns, values: values, rowClassNameExpression: rowClassNameExpression}));
             });
         }
     },
