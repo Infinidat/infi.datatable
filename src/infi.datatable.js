@@ -256,6 +256,7 @@ var DataTable = Backbone.View.extend({
                 tbody.append(template({model: model, columns: self.columns, values: values, rowClassNameExpression: rowClassNameExpression}));
             });
         }
+        self.trigger('data_rendered');
     },
 
     render_css: function() {
