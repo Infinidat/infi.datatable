@@ -6,7 +6,7 @@ var DataTableCollection = Backbone.Collection.extend({
     page_size: 10,
     metadata: {},
     filters: {},
-    focus: null,
+    custom_row_styles: {},
     loading: false,
 
     initialize: function(models, options) {
@@ -118,7 +118,7 @@ var DataTableCollection = Backbone.Collection.extend({
     set_page: function(page) {
         if (!self.loading && this.page != page) {
             this.page = page;
-            this.focus = null;
+            this.custom_row_styles = {};
             this.reload(true);
         }
     },
@@ -253,8 +253,16 @@ var DataTable = Backbone.View.extend({
                     if (column.render) value = column.render({model: model, column: column, value: value});
                     values.push(value);
                 });
-                var rowClassNameExpression = model.id == self.collection.focus ? 'class="focus"' : '';
-                tbody.append(template({model: model, columns: self.columns, values: values, rowClassNameExpression: rowClassNameExpression}));
+                var custom_classes =
+                    self.collection.custom_row_styles[model.id];
+                var rowClassNameExpression = custom_classes ?
+                    'class="' + custom_classes.join(' ') + '"' : '';
+                tbody.append(template({
+                  model: model,
+                  columns: self.columns,
+                  values: values,
+                  rowClassNameExpression: rowClassNameExpression
+                }));
             });
         }
         self.trigger('data_rendered');
