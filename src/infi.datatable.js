@@ -118,7 +118,6 @@ var DataTableCollection = Backbone.Collection.extend({
     set_page: function(page) {
         if (!self.loading && this.page != page) {
             this.page = page;
-            this.custom_row_styles = {};
             this.reload(true);
         }
     },
