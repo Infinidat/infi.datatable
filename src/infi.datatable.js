@@ -3,22 +3,25 @@ var DataTableCollection = Backbone.Collection.extend({
 
     sort: '',
     page: 1,
-    page_size: 10,
+    default_page_size: null,
     metadata: {},
     filters: {},
-    custom_row_styles: {},
     loading: false,
+    local_storage_prefix: 'infi.datatable.',
 
     initialize: function(models, options) {
         // If there's a query string in the URL, restore the collection state from it
         var self = this;
         if (window.location.search) {
-            self._restore_state();
+            self._restore_state(false);
+        } else {
+            this._set_page_size(this._get_page_size() || this.default_page_size);
         }
+        self._save_state();
         // Update the collection state when BACK button is pressed
         window.addEventListener('popstate', function(e) {
             if (e.state) {
-                self._restore_state();
+                self._restore_state(true);
             }
             else {
                 self._reset_state();
@@ -26,7 +29,7 @@ var DataTableCollection = Backbone.Collection.extend({
         });
     },
 
-    _restore_state: function() {
+    _restore_state: function(is_back_button) {
         // Parse query string
         var params = {};
         window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str, key, value) {
@@ -35,7 +38,17 @@ var DataTableCollection = Backbone.Collection.extend({
         // Get the parameters we know
         this.sort = params.sort || this.sort;
         this.page = parseInt(params.page || this.page);
-        this.page_size = parseInt(params.page_size || this.page_size);
+        if (is_back_button) {
+            // Local storage page size takes precedende on any other page size,
+            this._set_page_size(this._get_page_size()
+                || parseInt(params.page_size)
+                || this.default_page_size)
+        } else {
+            // Local storage page size takes precedende on any other page size,
+            this._set_page_size(parseInt(params.page_size)
+                || this._get_page_size()
+                || this.default_page_size)
+        }
         // All the rest are persumed to be filters
         this.filters = _.omit(params, 'sort', 'page', 'page_size');
         // Trigger an event to allow views to update their state too
@@ -46,7 +59,7 @@ var DataTableCollection = Backbone.Collection.extend({
     _reset_state: function() {
         this.sort = '';
         this.page = 1;
-        this.page_size = 10;
+        this._set_page_size(this._get_page_size() || this.default_page_size);
         this.filters = {};
         this.trigger('state:reset');
         this.reload(false);
@@ -124,7 +137,7 @@ var DataTableCollection = Backbone.Collection.extend({
 
     set_page_size: function(page_size) {
         if (!self.loading && this.page_size != page_size) {
-            this.page_size = page_size;
+            this._set_page_size(page_size);
             this.page = 1;
             this.reload(true);
         }
@@ -136,8 +149,17 @@ var DataTableCollection = Backbone.Collection.extend({
             this.page = 1;
             this.reload(true);
         }
-    }
+    },
 
+    _set_page_size: function(page_size) {
+        this.page_size = page_size;
+        localStorage.setItem(this.local_storage_prefix + 'page_size', page_size);
+    },
+
+    _get_page_size: function() {
+        var item = localStorage.getItem(this.local_storage_prefix + 'page_size')
+        return item ? parseInt(item) : this.default_page_size;
+    }
 });
 
 
@@ -187,6 +209,7 @@ var DataTable = Backbone.View.extend({
         var self = this;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
+        self.focus = options.focus || null;
         self.visibility = {}
         _.each(self.columns, function(column) {
             self.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
@@ -252,19 +275,10 @@ var DataTable = Backbone.View.extend({
                     if (column.render) value = column.render({model: model, column: column, value: value});
                     values.push(value);
                 });
-                var custom_classes =
-                    self.collection.custom_row_styles[model.id];
-                var rowClassNameExpression = custom_classes ?
-                    'class="' + custom_classes.join(' ') + '"' : '';
-                tbody.append(template({
-                  model: model,
-                  columns: self.columns,
-                  values: values,
-                  rowClassNameExpression: rowClassNameExpression
-                }));
+                var rowClassNameExpression = model.id == self.focus ? 'class="focus"' : '';
+                tbody.append(template({model: model, columns: self.columns, values: values, rowClassNameExpression: rowClassNameExpression}));
             });
         }
-        self.trigger('data_rendered');
     },
 
     render_css: function() {
@@ -390,7 +404,6 @@ var DataTablePaginator = Backbone.View.extend({
 
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
-        this.$settings_containers = options.settings_containers;
     },
 
     render: function() {
@@ -412,8 +425,7 @@ var DataTablePaginator = Backbone.View.extend({
             });
         }
         var settings = _.template(self.template)({page_sizes: [10, 30, 100]});
-        var settings_containers = self.$settings_containers || self.$el;
-        settings_containers.append(settings);
+        self.$el.append(settings);
         self.mark_current_page_size();
     },
 
