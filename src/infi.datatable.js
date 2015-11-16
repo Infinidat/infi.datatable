@@ -6,6 +6,7 @@ var DataTableCollection = Backbone.Collection.extend({
     default_page_size: null,
     metadata: {},
     filters: {},
+    custom_row_styles: {},
     loading: false,
     local_storage_prefix: 'infi.datatable.',
 
@@ -202,7 +203,6 @@ var DataTable = Backbone.View.extend({
         var self = this;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
-        self.focus = options.focus || null;
         self.visibility = {}
         _.each(self.columns, function(column) {
             self.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
