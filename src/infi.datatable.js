@@ -13,7 +13,7 @@ var DataTableCollection = Backbone.Collection.extend({
         // If there's a query string in the URL, restore the collection state from it
         var self = this;
         if (window.location.search) {
-            self._restore_state(false);
+            self._restore_state();
         } else {
             this._set_page_size(this._get_page_size() || this.default_page_size);
         }
@@ -21,7 +21,7 @@ var DataTableCollection = Backbone.Collection.extend({
         // Update the collection state when BACK button is pressed
         window.addEventListener('popstate', function(e) {
             if (e.state) {
-                self._restore_state(true);
+                self._restore_state();
             }
             else {
                 self._reset_state();
@@ -29,7 +29,7 @@ var DataTableCollection = Backbone.Collection.extend({
         });
     },
 
-    _restore_state: function(is_back_button) {
+    _restore_state: function() {
         // Parse query string
         var params = {};
         window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str, key, value) {
@@ -38,17 +38,10 @@ var DataTableCollection = Backbone.Collection.extend({
         // Get the parameters we know
         this.sort = params.sort || this.sort;
         this.page = parseInt(params.page || this.page);
-        if (is_back_button) {
-            // Local storage page size takes precedende on any other page size,
-            this._set_page_size(this._get_page_size()
-                || parseInt(params.page_size)
-                || this.default_page_size)
-        } else {
-            // Local storage page size takes precedende on any other page size,
-            this._set_page_size(parseInt(params.page_size)
-                || this._get_page_size()
-                || this.default_page_size)
-        }
+        // Local storage page size takes precedende on any other page size,
+        this._set_page_size(parseInt(params.page_size)
+            || this._get_page_size()
+            || this.default_page_size)
         // All the rest are persumed to be filters
         this.filters = _.omit(params, 'sort', 'page', 'page_size');
         // Trigger an event to allow views to update their state too
