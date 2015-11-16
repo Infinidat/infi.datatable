@@ -6,7 +6,6 @@ var DataTableCollection = Backbone.Collection.extend({
     default_page_size: null,
     metadata: {},
     filters: {},
-    custom_row_styles: {},
     loading: false,
     local_storage_prefix: 'infi.datatable.',
 
@@ -170,6 +169,8 @@ var DataTable = Backbone.View.extend({
         'click tbody tr':           'handle_row_click'
     },
 
+    custom_row_styles: {},
+
     row_template:      '<tr data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
                        '        <td class="td_<%- column.name %>"><%= values[index] %></td>' +
@@ -201,6 +202,7 @@ var DataTable = Backbone.View.extend({
 
     initialize: function(options) {
         var self = this;
+        self.custom_row_styles = options.custom_row_styles;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
         self.visibility = {}
@@ -269,7 +271,7 @@ var DataTable = Backbone.View.extend({
                     values.push(value);
                 });
                 var custom_classes =
-                    self.collection.custom_row_styles[model.id];
+                    self.custom_row_styles[model.id];
                 var rowClassNameExpression = custom_classes ?
                     'class="' + custom_classes.join(' ') + '"' : '';
                 tbody.append(template({
