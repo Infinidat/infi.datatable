@@ -1,0 +1,21 @@
+
+# generic
+*.tmp
+*.swp
+*.pyc
+*.pyo
+*.bak
+*.egg-info
+*.EGG-INFO
+.coverage
+.settings
+
+# eclipse
+.project
+.pydevproject
+
+# scm
+.bzr/
+.svn/
+.hg/
+
