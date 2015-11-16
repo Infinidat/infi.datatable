@@ -268,10 +268,19 @@ var DataTable = Backbone.View.extend({
                     if (column.render) value = column.render({model: model, column: column, value: value});
                     values.push(value);
                 });
-                var rowClassNameExpression = model.id == self.focus ? 'class="focus"' : '';
-                tbody.append(template({model: model, columns: self.columns, values: values, rowClassNameExpression: rowClassNameExpression}));
+                var custom_classes =
+                    self.collection.custom_row_styles[model.id];
+                var rowClassNameExpression = custom_classes ?
+                    'class="' + custom_classes.join(' ') + '"' : '';
+                tbody.append(template({
+                  model: model,
+                  columns: self.columns,
+                  values: values,
+                  rowClassNameExpression: rowClassNameExpression
+                }));
             });
         }
+        self.trigger('data_rendered');
     },
 
     render_css: function() {
