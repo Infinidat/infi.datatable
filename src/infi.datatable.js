@@ -13,13 +13,11 @@ var DataTableCollection = Backbone.Collection.extend({
         // If there's a query string in the URL, restore the collection state from it
         var self = this;
         if (options && options.local_storage_prefix) self.local_storage_prefix = options.local_storage_prefix;
+        if (options && options.default_page_size) self.default_page_size = options.default_page_size;
         if (window.location.search) {
             self._restore_state();
         } else {
             self._set_page_size(self._get_page_size() || self.default_page_size);
-        }
-        if (options) {
-            self.default_page_size = options.default_page_size || self.default_page_size;
         }
         self._save_state();
         // Update the collection state when BACK button is pressed
@@ -470,6 +468,8 @@ var DataTablePaginator = Backbone.View.extend({
 
     tagName: 'nav',
     className: 'infi-datatable-paginator',
+    show_settings: true,
+    page_sizes: [10, 30, 100],
 
     template: '&nbsp;<div class="btn-group" style="display: inline; float: right;">' +
               '    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">' +
@@ -488,7 +488,14 @@ var DataTablePaginator = Backbone.View.extend({
 
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
-        this.$settings_containers = options.settings_containers;
+        if (options) {
+            if (_.has(options, 'show_settings')) {
+                this.show_settings = options.show_settings;
+            }
+            if (_.has(options, 'page_sizes')) {
+                this.page_sizes = options.page_sizes;
+            }
+        }
     },
 
     render: function() {
@@ -509,9 +516,10 @@ var DataTablePaginator = Backbone.View.extend({
                 self.collection.set_page(num);
             });
         }
-        var settings = _.template(self.template)({page_sizes: [10, 30, 100]});
-        var settings_containers = self.$settings_containers || self.$el;
-        settings_containers.append(settings);
+        if (self.show_settings) {
+            var settings = _.template(self.template)({page_sizes: self.page_sizes});
+            self.$el.append(settings);
+        }
         self.mark_current_page_size();
     },
 
