@@ -3,7 +3,7 @@ var DataTableCollection = Backbone.Collection.extend({
 
     sort: '',
     page: 1,
-    default_page_size: null,
+    default_page_size: 100,
     metadata: {},
     filters: {},
     loading: false,
@@ -16,6 +16,9 @@ var DataTableCollection = Backbone.Collection.extend({
             self._restore_state();
         } else {
             this._set_page_size(this._get_page_size() || this.default_page_size);
+        }
+        if (options) {
+            self.default_page_size = options.default_page_size || this.default_page_size;
         }
         self._save_state();
         // Update the collection state when BACK button is pressed
