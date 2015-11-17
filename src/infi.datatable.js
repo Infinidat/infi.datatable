@@ -12,13 +12,14 @@ var DataTableCollection = Backbone.Collection.extend({
     initialize: function(models, options) {
         // If there's a query string in the URL, restore the collection state from it
         var self = this;
+        if (options && options.local_storage_prefix) self.local_storage_prefix = options.local_storage_prefix;
         if (window.location.search) {
             self._restore_state();
         } else {
-            this._set_page_size(this._get_page_size() || this.default_page_size);
+            self._set_page_size(self._get_page_size() || self.default_page_size);
         }
         if (options) {
-            self.default_page_size = options.default_page_size || this.default_page_size;
+            self.default_page_size = options.default_page_size || self.default_page_size;
         }
         self._save_state();
         // Update the collection state when BACK button is pressed
