@@ -146,11 +146,11 @@ var DataTableCollection = Backbone.Collection.extend({
 
     _set_page_size: function(page_size) {
         this.page_size = page_size;
-        localStorage.setItem(this.local_storage_prefix + 'page_size', page_size);
+        sessionStorage.setItem(this.local_storage_prefix + 'page_size', page_size);
     },
 
     _get_page_size: function() {
-        var item = localStorage.getItem(this.local_storage_prefix + 'page_size')
+        var item = sessionStorage.getItem(this.local_storage_prefix + 'page_size')
         return item ? parseInt(item) : this.default_page_size;
     }
 });
