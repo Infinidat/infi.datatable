@@ -408,6 +408,7 @@ var DataTablePaginator = Backbone.View.extend({
 
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
+        this.$settings_containers = options.settings_containers;
     },
 
     render: function() {
@@ -429,7 +430,8 @@ var DataTablePaginator = Backbone.View.extend({
             });
         }
         var settings = _.template(self.template)({page_sizes: [10, 30, 100]});
-        self.$el.append(settings);
+        var settings_containers = self.$settings_containers || self.$el;
+        settings_containers.append(settings);
         self.mark_current_page_size();
     },
 
