@@ -202,7 +202,7 @@ var DataTable = Backbone.View.extend({
 
     initialize: function(options) {
         var self = this;
-        self.custom_row_styles = options.custom_row_styles;
+        self.custom_row_styles = options.custom_row_styles || this.custom_row_styles;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
         self.visibility = {}
