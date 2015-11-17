@@ -117,7 +117,7 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_sort: function(sort) {
-        if (!self.loading && this.sort != sort) {
+        if (!this.loading && this.sort != sort) {
             this.sort = sort;
             this.page = 1;
             this.reload(true);
@@ -125,14 +125,14 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_page: function(page) {
-        if (!self.loading && this.page != page) {
+        if (!this.loading && this.page != page) {
             this.page = page;
             this.reload(true);
         }
     },
 
     set_page_size: function(page_size) {
-        if (!self.loading && this.page_size != page_size) {
+        if (!this.loading && this.page_size != page_size) {
             this._set_page_size(page_size);
             this.page = 1;
             this.reload(true);
@@ -140,7 +140,7 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_filters: function(filters) {
-        if (!self.loading) {
+        if (!this.loading) {
             this.filters = filters;
             this.page = 1;
             this.reload(true);
@@ -202,6 +202,22 @@ var DataTable = Backbone.View.extend({
                        '.infi-datatable th .glyphicon-chevron-up { display: none; }' +
                        '.infi-datatable th.desc .glyphicon-chevron-down { display: inline-block; }' +
                        '.infi-datatable th.asc .glyphicon-chevron-up { display: inline-block; }',
+
+    download_template: '<div class="modal download-modal" tabindex="-1">' +
+                       '    <div class="modal-dialog modal-sm">' +
+                       '        <div class="modal-content">' +
+                       '            <div class="modal-body">' +
+                       '                <p>Preparing Download</p>' +
+                       '                <div class="progress">' +
+                       '                  <div class="progress-bar progress-bar-striped active"></div>' +
+                       '                </div>' +
+                       '            </div>' +
+                       '            <div class="modal-footer">' +
+                       '                <button type="button" class="btn btn-default">Cancel</button>' +
+                       '            </div>' +
+                       '        </div>' +
+                       '    </div>' +
+                       '</div>    ',
 
     initialize: function(options) {
         var self = this;
@@ -267,14 +283,8 @@ var DataTable = Backbone.View.extend({
             tbody.empty();
             var template = _.template(self.row_template);
             self.collection.each(function(model) {
-                var values = [];
-                _.each(self.columns, function(column) {
-                    var value = model.get(column.name);
-                    if (column.render) value = column.render({model: model, column: column, value: value});
-                    values.push(value);
-                });
-                var custom_classes =
-                    self.custom_row_styles[model.id];
+                var values = self.row_for_model(model);
+                var custom_classes = self.custom_row_styles[model.id];
                 var rowClassNameExpression = custom_classes ?
                     'class="' + custom_classes.join(' ') + '"' : '';
                 tbody.append(template({
@@ -286,6 +296,17 @@ var DataTable = Backbone.View.extend({
             });
         }
         self.trigger('data_rendered');
+    },
+
+    row_for_model: function(model) {
+        // Given a model, returns the array of column values to display
+        var values = [];
+        _.each(this.columns, function(column) {
+            var value = model.get(column.name);
+            if (column.render) value = column.render({model: model, column: column, value: value});
+            values.push(value);
+        });
+        return values;
     },
 
     render_css: function() {
@@ -384,6 +405,61 @@ var DataTable = Backbone.View.extend({
             asc = false;
         }
         this.render_sorting($('thead .th_' + sort, this.el), asc);
+    },
+
+    download: function(filename) {
+        // Clone the collection, so that we can download all pages without affecting the real collection
+        var self = this;
+        var collection = self.collection.clone();
+        collection._save_state = _.noop()
+        collection.page_size = 1000;
+        // Display the download modal
+        $('body').append(_.template(self.download_template)());
+        $('.download-modal').modal();
+        var cancelled = false;
+        $('.download-modal button').on('click', function() {
+            cancelled = true;
+            $('.download-modal').modal('hide').detach();
+        })
+        // Start building the data
+        var titles = _.map($('th', self.el), $.text);
+        var rows = [self.as_csv(titles)];
+        // This function is called once all pages were loaded
+        function save_downloaded_data() {
+            $('.download-modal').modal('hide').detach();
+            var blob = new Blob([rows.join('\n')], {type: 'text/csv'});
+            saveAs(blob, filename + '.csv'); // implemented by FileSaver.js
+        }
+        // This function is called recursively to download all pages
+        function download_page(page) {
+            collection.page = page;
+            collection.load(function() {
+                if (cancelled) return;
+                // Update progress bar
+                var progress = 100.0 * collection.metadata.page / collection.metadata.pages_total;
+                $('.download-modal .progress-bar').width(progress + '%');
+                // Convert the models to CSV rows
+                collection.each(function(model) {
+                    var values = self.row_for_model(model);
+                    rows.push(self.as_csv(values));
+                });
+                // Continue to next page or finish
+                if (collection.metadata.next) {
+                    download_page(page + 1);
+                }
+                else {
+                    save_downloaded_data();
+                }
+            });
+        };
+        // Initiate the download
+        download_page(1);
+    },
+
+    as_csv: function(values) {
+        // Convert an array of values to a CSV string, stripping any HTML tags
+        var row = '<div>"' + values.join('","') + '"</div>';
+        return $(row).text();
     }
 
 });
