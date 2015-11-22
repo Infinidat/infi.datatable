@@ -62,7 +62,14 @@ var DataTableCollection = Backbone.Collection.extend({
 
     _save_state: function() {
         var state = this.get_request_data();
-        var query_string = '?' + $.param(state);
+        function serialize(obj) {
+            var str = [];
+            for (var p in obj) {
+                str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
+            }
+            return str.join("&");
+        }
+        var query_string = '?' + serialize(state);
         if (query_string != window.location.search) {
             history.pushState(state, '', query_string + window.location.hash);
         }
