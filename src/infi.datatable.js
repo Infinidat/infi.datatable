@@ -186,7 +186,7 @@ var DataTable = Backbone.View.extend({
                        '    <% }) %>' +
                        '</tr>',
 
-    settings_template: '<div class="settings" style="position: absolute; right: 5px; top: 5px;">' +
+    settings_template: '<div class="settings" style="position: absolute; right: 5px; top: 5px; z-index: 100;">' +
                        '    <button type="button" class="btn btn-default btn-xs"><i class="glyphicon glyphicon-th-list"></i></button>' +
                        '    <div class="panel panel-default hidden" style="position: absolute; right: 0; white-space: nowrap;">' +
                        '        <% _.each(columns, function(c) { %>' +
