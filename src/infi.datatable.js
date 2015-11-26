@@ -180,7 +180,7 @@ var DataTable = Backbone.View.extend({
 
     custom_row_styles: {},
 
-    row_template:      '<tr data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
+    row_template:      '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
                        '        <td class="td_<%- column.name %>"><%= values[index] %></td>' +
                        '    <% }) %>' +
@@ -302,6 +302,13 @@ var DataTable = Backbone.View.extend({
             });
         }
         self.trigger('data_rendered');
+        self.$el.keypress('tr', function(e) {
+            if (e.keyCode == 13) {
+                $(e.target).click();
+                e.stopImmediatePropagation();
+                return;
+            }
+        });
     },
 
     row_for_model: function(model) {
@@ -476,6 +483,7 @@ var DataTablePaginator = Backbone.View.extend({
     tagName: 'nav',
     className: 'infi-datatable-paginator',
     show_settings: true,
+    is_primary: false,
     page_sizes: [10, 30, 100],
 
     template: '&nbsp;<div class="btn-group" style="display: inline; float: right;">' +
@@ -496,8 +504,13 @@ var DataTablePaginator = Backbone.View.extend({
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
         if (options) {
+            if (_.has(options, 'is_primary')) {
+                this.is_primary = options.is_primary;
+            }
             if (_.has(options, 'show_settings')) {
                 this.show_settings = options.show_settings;
+            } else {
+                options.show_settings = !!options.is_primary;
             }
             if (_.has(options, 'page_sizes')) {
                 this.page_sizes = options.page_sizes;
@@ -514,6 +527,7 @@ var DataTablePaginator = Backbone.View.extend({
                 page: self.collection.metadata.page,
                 maxVisible: 5,
                 firstLastUse: true,
+                leaps: false,
                 wrapClass: 'pagination pagination-lg',
                 first: '<i class="glyphicon glyphicon-step-backward"></i>',
                 last: '<i class="glyphicon glyphicon-step-forward">',
@@ -521,6 +535,22 @@ var DataTablePaginator = Backbone.View.extend({
                 next: '<i class="glyphicon glyphicon-forward"></i>',
             }).on('page', function(event, num) {
                 self.collection.set_page(num);
+            });
+            if (self.is_primary) {
+                self.$el.find('li.active > a').focus();
+            }
+            self.$el.on('keypress', function(e) {
+                if (e.keyCode == 'k'.charCodeAt(0) ) {
+                    self.collection.set_page(
+                        Math.min(self.collection.metadata.pages_total, self.collection.page + 1));
+                    e.stopImmediatePropagation();
+                    return;
+                }
+                if (e.keyCode == 'j'.charCodeAt(0)) {
+                    self.collection.set_page(Math.max(1, self.collection.page - 1)) ;
+                    e.stopImmediatePropagation();
+                    return;
+                }
             });
         }
         if (self.show_settings) {
