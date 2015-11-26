@@ -483,7 +483,7 @@ var DataTablePaginator = Backbone.View.extend({
     tagName: 'nav',
     className: 'infi-datatable-paginator',
     show_settings: true,
-    is_primary: false,
+    is_primary: true,
     page_sizes: [10, 30, 100],
 
     template: '&nbsp;<div class="btn-group" style="display: inline; float: right;">' +
@@ -510,7 +510,7 @@ var DataTablePaginator = Backbone.View.extend({
             if (_.has(options, 'show_settings')) {
                 this.show_settings = options.show_settings;
             } else {
-                options.show_settings = !!options.is_primary;
+                options.show_settings = this.is_primary;
             }
             if (_.has(options, 'page_sizes')) {
                 this.page_sizes = options.page_sizes;
