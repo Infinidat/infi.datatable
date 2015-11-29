@@ -89,6 +89,10 @@ var DataTableCollection = Backbone.Collection.extend({
                 },
                 error: function(collection, response, options) {
                     self.loading = false;
+                    if (response.status == '403') {
+                        window.alert('Error: you are not logged in, data cannot be retrieved from the server, ' +
+                            'please refresh the page.');
+                    }
                 }
             });
         }
