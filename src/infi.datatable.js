@@ -514,7 +514,7 @@ var DataTablePaginator = Backbone.View.extend({
             if (_.has(options, 'show_settings')) {
                 this.show_settings = options.show_settings;
             } else {
-                options.show_settings = this.is_primary;
+                this.show_settings = this.is_primary;
             }
             if (_.has(options, 'page_sizes')) {
                 this.page_sizes = options.page_sizes;
