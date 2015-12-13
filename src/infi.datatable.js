@@ -371,12 +371,18 @@ var DataTable = Backbone.View.extend({
     },
 
     load_state: function() {
-        try {
-            var state = JSON.parse(sessionStorage.getItem(this.get_storage_key()))
-            _.extend(this.visibility, state.visibility);
+        var serialized_state = sessionStorage.getItem(this.get_storage_key());
+        if (!serialized_state) {
+            return;
         }
-        catch (e) {
-            console.log(e);
+        try {
+            var state = JSON.parse(serialized_state);
+            _.extend(this.visibility, state.visibility);
+        } catch (ex) {
+            // JSON parsing failed, log exception but keep going
+            // TODO: find a way to cause tests to fail without breaking the
+            // UI.
+            console.log(ex);
         }
     },
 
