@@ -546,9 +546,6 @@ var DataTablePaginator = Backbone.View.extend({
                 next: '<i class="glyphicon glyphicon-forward"></i>',
             }).on('page', function(event, num) {
                 self.collection.set_page(num);
-                if (self.is_primary) {
-                    self.$el.find('li.active > a').focus();
-                }
             });
             self.$el.on('keypress', function(e) {
                 if (e.keyCode == 'k'.charCodeAt(0) ) {
