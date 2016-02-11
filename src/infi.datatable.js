@@ -79,6 +79,7 @@ var DataTableCollection = Backbone.Collection.extend({
         var self = this;
         if (!self.loading) {
             self.loading = true;
+            self.trigger('data_requested');
             self.fetch({
                 headers: self.get_request_headers(),
                 data: self.get_request_data(),
