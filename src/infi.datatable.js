@@ -19,13 +19,12 @@ var DataTableCollection = Backbone.Collection.extend({
         } else {
             self._set_page_size(self._get_page_size() || self.default_page_size);
         }
-        self._save_state();
+        self._save_state(true);
         // Update the collection state when BACK button is pressed
         window.addEventListener('popstate', function(e) {
             if (e.state) {
                 self._restore_state();
-            }
-            else {
+            } else {
                 self._reset_state();
             }
         });
@@ -60,7 +59,7 @@ var DataTableCollection = Backbone.Collection.extend({
         this.reload(false);
     },
 
-    _save_state: function() {
+    _save_state: function(replace) {
         var state = this.get_request_data();
         function serialize(obj) {
             var str = [];
@@ -70,7 +69,9 @@ var DataTableCollection = Backbone.Collection.extend({
             return str.join("&");
         }
         var query_string = '?' + serialize(state);
-        if (query_string != window.location.search) {
+        if (replace) {
+            history.replaceState(state, '', query_string + window.location.hash);
+        } else if (query_string != window.location.search) {
             history.pushState(state, '', query_string + window.location.hash);
         }
     },
@@ -757,9 +758,16 @@ var DataTableQueryBuilder = Backbone.View.extend({
         // Convert the collection's filters into Query Builder rules
         var self = this;
         var rules = [];
+        var filter_field_names = _.pluck(this.filter_fields, 'id');
         _.each(self.collection.filters, function(value, key) {
-            var operator = value.split(':')[0];
-            var value = value.split(':')[1];
+            if (_.indexOf(filter_field_names, key) == -1) return; // skip unknown field names
+            var colon_location = value.indexOf(':');
+            if (colon_location == -1) {
+                operator = 'eq';
+            } else {
+                var operator = value.slice(0, colon_location);
+                var value = value.slice(colon_location + 1);
+            }
             if (operator == 'in' || operator == 'out' || operator == 'between') {
                 value = value.split(',');
             }
@@ -777,5 +785,4 @@ var DataTableQueryBuilder = Backbone.View.extend({
             self.$el.queryBuilder('reset');
         }
     }
-
 });
