@@ -161,7 +161,10 @@ var DataTableCollection = Backbone.Collection.extend({
 
     _set_page_size: function(page_size) {
         this.page_size = page_size;
-        sessionStorage.setItem(this.local_storage_prefix + 'page_size', page_size);
+        try {
+            sessionStorage.setItem(this.local_storage_prefix + 'page_size', page_size);
+        } catch(e) {
+        }
     },
 
     _get_page_size: function() {
@@ -369,7 +372,10 @@ var DataTable = Backbone.View.extend({
 
     save_state: function() {
         var state = {visibility: this.visibility};
-        sessionStorage.setItem(this.get_storage_key(), JSON.stringify(state));
+        try {
+            sessionStorage.setItem(this.get_storage_key(), JSON.stringify(state));
+        } catch(e) {
+        }
     },
 
     load_state: function() {
