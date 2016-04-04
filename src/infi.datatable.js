@@ -688,6 +688,7 @@ var DataTableQueryBuilder = Backbone.View.extend({
         {type: 'in',           to_api: 'in',        nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'not_in',       to_api: 'out',       nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'between',      to_api: 'between',   nb_inputs: 2, multiple: false, apply_to: ['number', 'datetime']},
+        {type: 'isnull',       to_api: 'isnull',    nb_inputs: 1, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
     ],
 
     initialize: function(options) {
