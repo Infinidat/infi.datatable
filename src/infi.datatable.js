@@ -195,7 +195,7 @@ var DataTable = Backbone.View.extend({
                        '    <% }) %>' +
                        '</tr>',
 
-    settings_template: '<div class="settings" style="position: absolute; right: 5px; top: 5px; z-index: 100;">' +
+    settings_template: '<div class="settings" style="position: absolute; right: 20px; top: 15px; z-index: 100;">' +
                        '    <button type="button" class="btn btn-default btn-xs"><i class="glyphicon glyphicon-th-list"></i></button>' +
                        '    <div class="panel panel-default hidden" style="position: absolute; right: 0; white-space: nowrap;">' +
                        '        <% _.each(columns, function(c) { %>' +
@@ -212,7 +212,7 @@ var DataTable = Backbone.View.extend({
                        '    }' +
                        '<% }) %>' +
                        '.infi-datatable { table-layout: fixed; }' +
-                       '.infi-datatable caption { position: relative; padding: 0; }' +
+                       '.infi-datatable caption { padding: 0; }' +
                        '.infi-datatable th .glyphicon-chevron-down { display: none; }' +
                        '.infi-datatable th .glyphicon-chevron-up { display: none; }' +
                        '.infi-datatable th.desc .glyphicon-chevron-down { display: inline-block; }' +
