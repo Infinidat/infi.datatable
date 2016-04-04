@@ -705,7 +705,9 @@ var DataTableQueryBuilder = Backbone.View.extend({
             },
             allow_empty: true,
             allow_groups: false,
-            conditions: ['AND']
+            conditions: ['AND'],
+            lang: {  "delete_rule": "Remove",
+                     "delete_group": "Remove"}
         });
         this.handle_collection_state();
     },
