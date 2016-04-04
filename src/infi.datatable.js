@@ -187,7 +187,7 @@ var DataTable = Backbone.View.extend({
         'click tbody tr':           'handle_row_click'
     },
 
-    custom_row_styles: {},
+    custom_row_styles: function(model) { return [] },
 
     row_template:      '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
@@ -299,7 +299,7 @@ var DataTable = Backbone.View.extend({
             var template = _.template(self.row_template);
             self.collection.each(function(model) {
                 var values = self.row_for_model(model);
-                var custom_classes = self.custom_row_styles[model.id];
+                var custom_classes = self.custom_row_styles(model);
                 var rowClassNameExpression = custom_classes ?
                     'class="' + custom_classes.join(' ') + '"' : '';
                 tbody.append(template({
