@@ -12,25 +12,27 @@ var DataTableCollection = Backbone.Collection.extend({
     initialize: function(models, options) {
         // If there's a query string in the URL, restore the collection state from it
         var self = this;
-        if (options && options.local_storage_prefix) self.local_storage_prefix = options.local_storage_prefix;
-        if (options && options.default_page_size) self.default_page_size = options.default_page_size;
+        self.visibility = {}
         if (window.location.search) {
-            self._restore_state();
-        } else {
-            self._set_page_size(self._get_page_size() || self.default_page_size);
+            self._restore_state_from_url();
         }
-        self._save_state(true);
+        // Local storage page size takes overrides query page size.
+        this.load_state_from_storage();
+        // Use default page size if both
+        this.page_size = this.page_size || this.default_page_size;
+        self._save_state_to_url(true /* replace */);
+
         // Update the collection state when BACK button is pressed
         window.addEventListener('popstate', function(e) {
             if (e.state) {
-                self._restore_state();
+                self._restore_state_from_url();
             } else {
                 self._reset_state();
             }
         });
     },
 
-    _restore_state: function() {
+    _restore_state_from_url: function() {
         // Parse query string
         var params = {};
         window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str, key, value) {
@@ -39,10 +41,10 @@ var DataTableCollection = Backbone.Collection.extend({
         // Get the parameters we know
         this.sort = params.sort || this.sort;
         this.page = parseInt(params.page || this.page);
-        // Local storage page size takes precedende on any other page size,
-        this._set_page_size(parseInt(params.page_size)
-            || this._get_page_size()
-            || this.default_page_size)
+        if (params.page_size) {
+            this.page_size = parseInt(params.page_size);
+        }
+
         // All the rest are persumed to be filters
         this.filters = _.omit(params, 'sort', 'page', 'page_size');
         // Trigger an event to allow views to update their state too
@@ -59,7 +61,7 @@ var DataTableCollection = Backbone.Collection.extend({
         this.reload(false);
     },
 
-    _save_state: function(replace) {
+    _save_state_to_url: function(replace) {
         var state = this.get_request_data();
         function serialize(obj) {
             var str = [];
@@ -73,6 +75,37 @@ var DataTableCollection = Backbone.Collection.extend({
             history.replaceState(state, '', query_string + window.location.hash);
         } else if (query_string != window.location.search) {
             history.pushState(state, '', query_string + window.location.hash);
+        }
+    },
+
+    /* Loading and saving the table state in session storage */
+
+    get_storage_key: function() {
+        return 'infi.datatable.' + this.id;
+    },
+
+    save_state_to_storage: function() {
+        var state = {visibility: this.visibility, page_size: this.page_size};
+        try {
+            sessionStorage.setItem(this.get_storage_key(), JSON.stringify(state));
+        } catch(e) {
+        }
+    },
+
+    load_state_from_storage: function() {
+        var serialized_state = sessionStorage.getItem(this.get_storage_key());
+        if (!serialized_state) {
+            return;
+        }
+        try {
+            var state = JSON.parse(serialized_state);
+            this.page_size = this.page_size || state.page_size;
+            _.extend(this.visibility, state.visibility);
+        } catch (ex) {
+            // JSON parsing failed, log exception but keep going
+            // TODO: find a way to cause tests to fail without breaking the
+            // UI.
+            console.log(ex);
         }
     },
 
@@ -100,12 +133,12 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
-    reload: function(save_state) {
+    reload: function(save_state_to_storage) {
         // Load the collection, unless it hasn't been loaded previously
         // Also pushes the state of the collection to the browser history, for BACK button support
         if (_.keys(this.metadata).length > 0) {
-            if (save_state) {
-                this._save_state();
+            if (save_state_to_storage) {
+                this._save_state_to_url();
             }
             this.load();
         }
@@ -145,8 +178,9 @@ var DataTableCollection = Backbone.Collection.extend({
 
     set_page_size: function(page_size) {
         if (!this.loading && this.page_size != page_size) {
-            this._set_page_size(page_size);
+            this.page_size = page_size;
             this.page = 1;
+            this.save_state_to_storage();
             this.reload(true);
         }
     },
@@ -158,19 +192,6 @@ var DataTableCollection = Backbone.Collection.extend({
             this.reload(true);
         }
     },
-
-    _set_page_size: function(page_size) {
-        this.page_size = page_size;
-        try {
-            sessionStorage.setItem(this.local_storage_prefix + 'page_size', page_size);
-        } catch(e) {
-        }
-    },
-
-    _get_page_size: function() {
-        var item = sessionStorage.getItem(this.local_storage_prefix + 'page_size')
-        return item ? parseInt(item) : this.default_page_size;
-    }
 });
 
 
@@ -238,11 +259,9 @@ var DataTable = Backbone.View.extend({
         self.custom_row_styles = options.custom_row_styles || this.custom_row_styles;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
-        self.visibility = {}
         _.each(self.columns, function(column) {
-            self.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
+            self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
         });
-        self.load_state();
         self.collection.on('reset', _.bind(self.render_tbody, self));
         self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
     },
@@ -360,37 +379,7 @@ var DataTable = Backbone.View.extend({
     },
 
     column_visible: function(column) {
-        return this.visibility[column.name];
-    },
-
-    /* Loading and saving the table state in session storage */
-
-    get_storage_key: function() {
-        return 'infi_datatable_' + this.id;
-    },
-
-    save_state: function() {
-        var state = {visibility: this.visibility};
-        try {
-            sessionStorage.setItem(this.get_storage_key(), JSON.stringify(state));
-        } catch(e) {
-        }
-    },
-
-    load_state: function() {
-        var serialized_state = sessionStorage.getItem(this.get_storage_key());
-        if (!serialized_state) {
-            return;
-        }
-        try {
-            var state = JSON.parse(serialized_state);
-            _.extend(this.visibility, state.visibility);
-        } catch (ex) {
-            // JSON parsing failed, log exception but keep going
-            // TODO: find a way to cause tests to fail without breaking the
-            // UI.
-            console.log(ex);
-        }
+        return this.collection.visibility[column.name];
     },
 
     /* Event handlers */
@@ -398,9 +387,9 @@ var DataTable = Backbone.View.extend({
     handle_visibility: function(e) {
         var self = this;
         $('.settings input', this.el).each(function() {
-            self.visibility[$(this).attr('name')] = $(this).is(':checked');
+            self.collection.visibility[$(this).attr('name')] = $(this).is(':checked');
         });
-        self.save_state();
+        self.collection.save_state_to_storage();
         self.render_css();
     },
 
@@ -437,7 +426,7 @@ var DataTable = Backbone.View.extend({
         // Clone the collection, so that we can download all pages without affecting the real collection
         var self = this;
         var collection = self.collection.clone();
-        collection._save_state = _.noop()
+        collection._save_state_to_url = _.noop()
         collection.page_size = 1000;
         // Display the download modal
         $('body').append(_.template(self.download_template)());
