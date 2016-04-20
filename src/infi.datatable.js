@@ -181,7 +181,6 @@ var DataTable = Backbone.View.extend({
     className: "table table-hover table-bordered infi-datatable",
 
     events: {
-        'click .settings > button': 'handle_settings',
         'change .settings input':   'handle_visibility',
         'click th.sortable':        'handle_sort',
         'click tbody tr':           'handle_row_click'
@@ -196,8 +195,8 @@ var DataTable = Backbone.View.extend({
                        '</tr>',
 
     settings_template: '<div class="settings" style="position: absolute; right: 20px; top: 15px; z-index: 100;">' +
-                       '    <button type="button" class="btn btn-default btn-xs"><i class="glyphicon glyphicon-th-list"></i></button>' +
-                       '    <div class="panel panel-default hidden" style="position: absolute; right: 0; white-space: nowrap;">' +
+                       '    <button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown"><i class="glyphicon glyphicon-th-list"></i></button>' +
+                       '    <div class="panel panel-default dropdown-menu dropdown-menu-right" style="white-space: nowrap; min-width: initial; font-size: inherit">' +
                        '        <% _.each(columns, function(c) { %>' +
                        '            <label style="display: block; padding: 5px 20px 0 10px;">' +
                        '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"> <%- column_title(c) %></label>' +
@@ -395,10 +394,6 @@ var DataTable = Backbone.View.extend({
     },
 
     /* Event handlers */
-
-    handle_settings: function(e) {
-        $(e.target).closest('button').next().toggleClass('hidden');
-    },
 
     handle_visibility: function(e) {
         var self = this;
