@@ -508,7 +508,7 @@ var DataTablePaginator = Backbone.View.extend({
               '    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">' +
               '        <i class="glyphicon glyphicon-cog"></i>' +
               '    </button>' +
-              '    <ul class="dropdown-menu">' +
+              '    <ul class="dropdown-menu dropdown-menu-right">' +
               '        <% _.each(page_sizes, function(size) { %>' +
               '            <li><a href="#" class="menu-page-size" data-size="<%= size %>">Page Size: <%= size %></i></a></li>' +
               '        <% }); %>' +
