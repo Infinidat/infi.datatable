@@ -219,8 +219,8 @@ var DataTable = Backbone.View.extend({
                        '    <button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown"><i class="glyphicon glyphicon-th-list"></i></button>' +
                        '    <div class="panel panel-default dropdown-menu dropdown-menu-right" style="white-space: nowrap; min-width: initial; font-size: inherit">' +
                        '        <% _.each(columns, function(c) { %>' +
-                       '            <label style="display: block; padding: 5px 20px 0 10px;">' +
-                       '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"> <%- column_title(c) %></label>' +
+                       '            <label class="themed-checkbox" style="display: block; padding: 5px 20px 0 10px;">' +
+                       '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"><span></span> <%- column_title(c) %></label>' +
                        '        <% }) %>' +
                        '    </div>' +
                        '</div>',
@@ -530,7 +530,7 @@ var DataTablePaginator = Backbone.View.extend({
                 maxVisible: 5,
                 firstLastUse: true,
                 leaps: false,
-                wrapClass: 'pagination pagination-lg',
+                wrapClass: 'pagination',
                 first: '<i class="glyphicon glyphicon-step-backward"></i>',
                 last: '<i class="glyphicon glyphicon-step-forward">',
                 prev: '<i class="glyphicon glyphicon-backward"></i>',
@@ -609,7 +609,7 @@ var DataTableSimpleQuery = Backbone.View.extend({
     className: "infi-datatable-simple-query",
 
     template: '<div class="form-group has-feedback">' +
-              '    <input name="<%= field_name %>" placeholder="Search" class="form-control input-lg" maxlength="50" value="<%= field_value %>">' +
+              '    <input name="<%= field_name %>" placeholder="Search" class="form-control" maxlength="50" value="<%= field_value %>">' +
               '    <span class="glyphicon glyphicon-search form-control-feedback"></span>' +
               '</div>',
 
