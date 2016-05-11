@@ -202,9 +202,10 @@ var DataTable = Backbone.View.extend({
     className: "table table-hover table-bordered infi-datatable",
 
     events: {
-        'change .settings input':   'handle_visibility',
-        'click th.sortable':        'handle_sort',
-        'click tbody tr':           'handle_row_click'
+        'change .settings input':         'handle_visibility',
+        'click th.sortable':              'handle_sort',
+        'click .settings .dropdown-menu': 'prevent_settings_hide',
+        'click tbody tr':                 'handle_row_click'
     },
 
     custom_row_styles: function(model) { return [] },
@@ -391,6 +392,10 @@ var DataTable = Backbone.View.extend({
         });
         self.collection.save_state_to_storage();
         self.render_css();
+    },
+
+    prevent_settings_hide: function(e) {
+        e.stopPropagation();
     },
 
     handle_sort: function(e) {
