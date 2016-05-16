@@ -55,7 +55,7 @@ var DataTableCollection = Backbone.Collection.extend({
     _reset_state: function() {
         this.sort = '';
         this.page = 1;
-        this._set_page_size(this._get_page_size() || this.default_page_size);
+        this.page_size = this.default_page_size;
         this.filters = {};
         this.trigger('state:reset');
         this.reload(false);
