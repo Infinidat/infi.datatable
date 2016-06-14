@@ -420,7 +420,7 @@ var DataTable = Backbone.View.extend({
         // Mark the sorted column
         var sort = this.collection.sort;
         var asc = true;
-        if (sort.startsWith('-')) {
+        if (sort && sort[0] == '-') {
             sort = sort.substr(1);
             asc = false;
         }
