@@ -1,4 +1,3 @@
-
 var DataTableCollection = Backbone.Collection.extend({
 
     sort: '',
