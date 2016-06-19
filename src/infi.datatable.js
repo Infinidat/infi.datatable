@@ -299,6 +299,7 @@ var DataTable = Backbone.View.extend({
         _.each(this.columns, function(column) {
             var title = self.column_title(column);
             var th = $('<th/>').text(title).addClass('th_' + column.name).data('column', column.name);
+            th.data("default_sort", column.default_sort || 'asc');
             if (column.sortable != false) {
                 th.addClass('sortable').append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
             }
@@ -400,7 +401,10 @@ var DataTable = Backbone.View.extend({
     handle_sort: function(e) {
         if (this.collection.is_loading()) return;
         var th = $(e.target).closest('th');
-        var asc = !th.hasClass('asc');
+        var asc;
+        if (th.hasClass('asc')) asc = false;
+        else if (th.hasClass('desc')) asc = true;
+        else asc = th.data('default_sort') == 'asc';
         this.render_sorting(th, asc);
         this.collection.set_sort((asc ? '' : '-') + th.data('column'));
     },
