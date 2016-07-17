@@ -6,6 +6,7 @@ var DataTableCollection = Backbone.Collection.extend({
     metadata: {},
     filters: {},
     loading: false,
+    last_request_data: {},
     local_storage_prefix: 'infi.datatable.',
 
     initialize: function(models, options) {
@@ -16,9 +17,9 @@ var DataTableCollection = Backbone.Collection.extend({
             self._restore_state_from_url();
         }
         // Local storage page size takes overrides query page size.
-        this.load_state_from_storage();
+        self.load_state_from_storage();
         // Use default page size if both
-        this.page_size = this.page_size || this.default_page_size;
+        self.page_size = self.page_size || self.default_page_size;
         self._save_state_to_url(true /* replace */);
 
         // Update the collection state when BACK button is pressed
@@ -29,6 +30,10 @@ var DataTableCollection = Backbone.Collection.extend({
                 self._reset_state();
             }
         });
+
+        // After the collection is fetched, check if it should be reloaded
+        self.on('sync', self.reload_if_changed, self);
+
     },
 
     _restore_state_from_url: function() {
@@ -113,9 +118,10 @@ var DataTableCollection = Backbone.Collection.extend({
         if (!self.loading) {
             self.loading = true;
             self.trigger('data_requested');
+            self.last_request_data = self.get_request_data();
             self.fetch({
                 headers: self.get_request_headers(),
-                data: self.get_request_data(),
+                data: self.last_request_data,
                 reset: true,
                 success: function(collection, response, options) {
                     self.loading = false;
@@ -143,6 +149,16 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
+    reload_if_changed: function() {
+        // While loading the collection, there may have been a change in the
+        // filtering/sorting/pagination that requires a reload.
+        // This function is called after a "sync" event, so setTimeout is used
+        // to allow any other listeners to process the event before starting another request.
+        if (_.isEqual(this.last_request_data, this.get_request_data())) return;
+        var self = this;
+        setTimeout(function() { self.reload(true) }, 1);
+    },
+
     parse: function(response) {
         this.metadata = response.metadata;
         return response.result;
@@ -161,7 +177,7 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_sort: function(sort) {
-        if (!this.loading && this.sort != sort) {
+        if (this.sort != sort) {
             this.sort = sort;
             this.page = 1;
             this.reload(true);
@@ -169,14 +185,14 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_page: function(page) {
-        if (!this.loading && this.page != page) {
+        if (this.page != page) {
             this.page = page;
             this.reload(true);
         }
     },
 
     set_page_size: function(page_size) {
-        if (!this.loading && this.page_size != page_size) {
+        if (this.page_size != page_size) {
             this.page_size = page_size;
             this.page = 1;
             this.save_state_to_storage();
@@ -185,12 +201,11 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_filters: function(filters) {
-        if (!this.loading) {
-            this.filters = filters;
-            this.page = 1;
-            this.reload(true);
-        }
-    },
+        this.filters = filters;
+        this.page = 1;
+        this.reload(true);
+    }
+
 });
 
 
