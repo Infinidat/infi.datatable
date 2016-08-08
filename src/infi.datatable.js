@@ -4,7 +4,7 @@ var DataTableCollection = Backbone.Collection.extend({
     page: 1,
     default_page_size: 100,
     metadata: {},
-    filters: {},
+    filters: [],
     loading: false,
     last_request_data: {},
     local_storage_prefix: 'infi.datatable.',
@@ -38,9 +38,12 @@ var DataTableCollection = Backbone.Collection.extend({
 
     _restore_state_from_url: function() {
         // Parse query string
-        var params = {};
+        var params_list = [];
+        var params = {}
         window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str, key, value) {
-            params[key] = decodeURIComponent(value);
+            decoded = decodeURIComponent(value)
+            params_list.push([key, decoded]);
+            params[key] = decoded;
         });
         // Get the parameters we know
         this.sort = params.sort || this.sort;
@@ -50,7 +53,9 @@ var DataTableCollection = Backbone.Collection.extend({
         }
 
         // All the rest are persumed to be filters
-        this.filters = _.omit(params, 'sort', 'page', 'page_size');
+        this.filters = _.filter(params_list, function(pair) {
+            return ['sort', 'page', 'page_size'].indexOf(pair[0]) == -1;
+        });
         // Trigger an event to allow views to update their state too
         this.trigger('state:restore');
         this.reload(false);
@@ -60,21 +65,23 @@ var DataTableCollection = Backbone.Collection.extend({
         this.sort = '';
         this.page = 1;
         this.page_size = this.default_page_size;
-        this.filters = {};
+        this.filters = [];
         this.trigger('state:reset');
         this.reload(false);
     },
 
+    _serialize_params: function(pairs) {
+        var str = [];
+        for (var i = 0; i < pairs.length; ++i) {
+            var pair = pairs[i]
+            str.push(encodeURIComponent(pair[0]) + "=" + encodeURIComponent(pair[1]));
+        }
+        return str.join("&");
+    },
+
     _save_state_to_url: function(replace) {
         var state = this.get_request_data();
-        function serialize(obj) {
-            var str = [];
-            for (var p in obj) {
-                str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
-            }
-            return str.join("&");
-        }
-        var query_string = '?' + serialize(state);
+        var query_string = '?' + this._serialize_params(state);
         if (replace) {
             history.replaceState(state, '', query_string + window.location.hash);
         } else if (query_string != window.location.search) {
@@ -121,7 +128,7 @@ var DataTableCollection = Backbone.Collection.extend({
             self.last_request_data = self.get_request_data();
             self.fetch({
                 headers: self.get_request_headers(),
-                data: self.last_request_data,
+                data: self._serialize_params(self.last_request_data),
                 reset: true,
                 success: function(collection, response, options) {
                     self.loading = false;
@@ -173,7 +180,9 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     get_request_data: function() {
-        return _.extend({sort: this.sort, page: this.page, page_size: this.page_size}, this.filters);
+        return [['sort', this.sort],
+                ['page', this.page],
+                ['page_size', this.page_size]].concat(this.filters);
     },
 
     set_sort: function(sort) {
@@ -662,8 +671,8 @@ var DataTableSimpleQuery = Backbone.View.extend({
     ),
 
     get_query_params: function() {
-        var params = {}
-        params[this.field_name] = this.$el.find('input').val();
+        var params = []
+        params.push([this.field_name, this.$el.find('input').val()]);
         return params;
     },
 
@@ -757,9 +766,9 @@ var DataTableQueryBuilder = Backbone.View.extend({
         // Convert the current rules into API query params
         var self = this;
         var rules = self.get_rules();
-        var params = {}
+        var params = []
         _.each(rules.rules, function(rule) {
-            params[rule.id] = self.operator_to_api(rule.operator) + ':' + rule.value.toString();
+            params.push([rule.id, self.operator_to_api(rule.operator) + ':' + rule.value.toString()]);
         });
         return params
     },
