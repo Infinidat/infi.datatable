@@ -6,7 +6,7 @@ var DataTableCollection = Backbone.Collection.extend({
     metadata: {},
     filters: [],
     loading: false,
-    last_request_data: {},
+    last_request_data: [],
     local_storage_prefix: 'infi.datatable.',
 
     initialize: function(models, options) {
@@ -62,6 +62,9 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     _reset_state: function() {
+        if (this.loading) {
+            return
+        }
         this.sort = '';
         this.page = 1;
         this.page_size = this.default_page_size;
