@@ -13,6 +13,7 @@ Features
 * Simple or advanced search/filter.
 * The user can choose which columns to display, and the selection is saved in session storage.
 * Full BACK button support.
+* Client-side export of the data to a CSV file.
 
 Not supported yet: multi-column sorting; column resize; column reorder.
 
@@ -24,7 +25,7 @@ Dependencies
 * Bootstrap 3.x (http://getbootstrap.com/)
 * Bootpag 1.0.7+ (http://botmonster.com/jquery-bootpag/) - required for DataTablePaginator
 * jQuery QueryBuilder 2.3+ (http://mistic100.github.io/jQuery-QueryBuilder/) - required for DataTableQueryBuilder
-
+* FileSaver.js (https://github.com/eligrey/FileSaver.js) - required for client-side data export
 
 Classes
 =======
@@ -123,6 +124,17 @@ the cells' class will be `th_timestamp` and `td_timestamp`. This makes it easy t
 Table header cells also get the classes `sortable` (if the column is sortable), `asc` (when sorted in ascending order)
 and `desc` (when sorted in descending order).
 
+#### Data Export
+
+The DataTable provides a `download` function which generates a CSV file containing all the table data,
+and downloads it using FileSaver.js (see dependencies). The function expects the filename to use (the .csv extension is added automatically). For example:
+
+```javascript
+var dt = new DataTable({...});
+$('#export_button').on('click', function() {
+    dt.download('exported_events');
+});
+```
 
 ### DataTablePaginator
 

@@ -1,68 +1,125 @@
-
 var DataTableCollection = Backbone.Collection.extend({
 
     sort: '',
     page: 1,
-    default_page_size: null,
+    default_page_size: 100,
     metadata: {},
-    filters: {},
+    filters: [],
     loading: false,
+    last_request_data: [],
     local_storage_prefix: 'infi.datatable.',
 
     initialize: function(models, options) {
         // If there's a query string in the URL, restore the collection state from it
         var self = this;
+        self.visibility = {}
         if (window.location.search) {
-            self._restore_state();
-        } else {
-            this._set_page_size(this._get_page_size() || this.default_page_size);
+            self._restore_state_from_url();
         }
-        self._save_state();
+        // Local storage page size takes overrides query page size.
+        self.load_state_from_storage();
+        // Use default page size if both
+        self.page_size = self.page_size || self.default_page_size;
+        self._save_state_to_url(true /* replace */);
+
         // Update the collection state when BACK button is pressed
         window.addEventListener('popstate', function(e) {
             if (e.state) {
-                self._restore_state();
-            }
-            else {
+                self._restore_state_from_url();
+            } else {
                 self._reset_state();
             }
         });
+
+        // After the collection is fetched, check if it should be reloaded
+        self.on('sync', self.reload_if_changed, self);
+
     },
 
-    _restore_state: function() {
+    _restore_state_from_url: function() {
         // Parse query string
-        var params = {};
+        var params_list = [];
+        var params = {}
         window.location.search.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(str, key, value) {
-            params[key] = decodeURIComponent(value);
+            decoded = decodeURIComponent(value)
+            params_list.push([key, decoded]);
+            params[key] = decoded;
         });
         // Get the parameters we know
         this.sort = params.sort || this.sort;
         this.page = parseInt(params.page || this.page);
-        // Local storage page size takes precedende on any other page size,
-        this._set_page_size(parseInt(params.page_size)
-            || this._get_page_size()
-            || this.default_page_size)
+        if (params.page_size) {
+            this.page_size = parseInt(params.page_size);
+        }
+
         // All the rest are persumed to be filters
-        this.filters = _.omit(params, 'sort', 'page', 'page_size');
+        this.filters = _.filter(params_list, function(pair) {
+            return ['sort', 'page', 'page_size'].indexOf(pair[0]) == -1;
+        });
         // Trigger an event to allow views to update their state too
         this.trigger('state:restore');
         this.reload(false);
     },
 
     _reset_state: function() {
+        if (this.loading) {
+            return
+        }
         this.sort = '';
         this.page = 1;
-        this._set_page_size(this._get_page_size() || this.default_page_size);
-        this.filters = {};
+        this.page_size = this.default_page_size;
+        this.filters = [];
         this.trigger('state:reset');
         this.reload(false);
     },
 
-    _save_state: function() {
+    _serialize_params: function(pairs) {
+        var str = [];
+        for (var i = 0; i < pairs.length; ++i) {
+            var pair = pairs[i]
+            str.push(encodeURIComponent(pair[0]) + "=" + encodeURIComponent(pair[1]));
+        }
+        return str.join("&");
+    },
+
+    _save_state_to_url: function(replace) {
         var state = this.get_request_data();
-        var query_string = '?' + $.param(state);
-        if (query_string != window.location.search) {
-            history.pushState(state, '', query_string);
+        var query_string = '?' + this._serialize_params(state);
+        if (replace) {
+            history.replaceState(state, '', query_string + window.location.hash);
+        } else if (query_string != window.location.search) {
+            history.pushState(state, '', query_string + window.location.hash);
+        }
+    },
+
+    /* Loading and saving the table state in session storage */
+
+    get_storage_key: function() {
+        return 'infi.datatable.' + this.id;
+    },
+
+    save_state_to_storage: function() {
+        var state = {visibility: this.visibility, page_size: this.page_size};
+        try {
+            sessionStorage.setItem(this.get_storage_key(), JSON.stringify(state));
+        } catch(e) {
+        }
+    },
+
+    load_state_from_storage: function() {
+        var serialized_state = sessionStorage.getItem(this.get_storage_key());
+        if (!serialized_state) {
+            return;
+        }
+        try {
+            var state = JSON.parse(serialized_state);
+            this.page_size = this.page_size || state.page_size;
+            _.extend(this.visibility, state.visibility);
+        } catch (ex) {
+            // JSON parsing failed, log exception but keep going
+            // TODO: find a way to cause tests to fail without breaking the
+            // UI.
+            console.log(ex);
         }
     },
 
@@ -70,9 +127,11 @@ var DataTableCollection = Backbone.Collection.extend({
         var self = this;
         if (!self.loading) {
             self.loading = true;
+            self.trigger('data_requested');
+            self.last_request_data = self.get_request_data();
             self.fetch({
                 headers: self.get_request_headers(),
-                data: self.get_request_data(),
+                data: self._serialize_params(self.last_request_data),
                 reset: true,
                 success: function(collection, response, options) {
                     self.loading = false;
@@ -80,20 +139,34 @@ var DataTableCollection = Backbone.Collection.extend({
                 },
                 error: function(collection, response, options) {
                     self.loading = false;
+                    if (response.status == '403') {
+                        window.alert('Error: you are not logged in, data cannot be retrieved from the server, ' +
+                            'please refresh the page.');
+                    }
                 }
             });
         }
     },
 
-    reload: function(save_state) {
+    reload: function(save_state_to_storage) {
         // Load the collection, unless it hasn't been loaded previously
         // Also pushes the state of the collection to the browser history, for BACK button support
         if (_.keys(this.metadata).length > 0) {
-            if (save_state) {
-                this._save_state();
+            if (save_state_to_storage) {
+                this._save_state_to_url();
             }
             this.load();
         }
+    },
+
+    reload_if_changed: function() {
+        // While loading the collection, there may have been a change in the
+        // filtering/sorting/pagination that requires a reload.
+        // This function is called after a "sync" event, so setTimeout is used
+        // to allow any other listeners to process the event before starting another request.
+        if (_.isEqual(this.last_request_data, this.get_request_data())) return;
+        var self = this;
+        setTimeout(function() { self.reload(true) }, 1);
     },
 
     parse: function(response) {
@@ -110,11 +183,13 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     get_request_data: function() {
-        return _.extend({sort: this.sort, page: this.page, page_size: this.page_size}, this.filters);
+        return [['sort', this.sort],
+                ['page', this.page],
+                ['page_size', this.page_size]].concat(this.filters);
     },
 
     set_sort: function(sort) {
-        if (!self.loading && this.sort != sort) {
+        if (this.sort != sort) {
             this.sort = sort;
             this.page = 1;
             this.reload(true);
@@ -122,37 +197,27 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     set_page: function(page) {
-        if (!self.loading && this.page != page) {
+        if (this.page != page) {
             this.page = page;
             this.reload(true);
         }
     },
 
     set_page_size: function(page_size) {
-        if (!self.loading && this.page_size != page_size) {
-            this._set_page_size(page_size);
+        if (this.page_size != page_size) {
+            this.page_size = page_size;
             this.page = 1;
+            this.save_state_to_storage();
             this.reload(true);
         }
     },
 
     set_filters: function(filters) {
-        if (!self.loading) {
-            this.filters = filters;
-            this.page = 1;
-            this.reload(true);
-        }
-    },
-
-    _set_page_size: function(page_size) {
-        this.page_size = page_size;
-        localStorage.setItem(this.local_storage_prefix + 'page_size', page_size);
-    },
-
-    _get_page_size: function() {
-        var item = localStorage.getItem(this.local_storage_prefix + 'page_size')
-        return item ? parseInt(item) : this.default_page_size;
+        this.filters = filters;
+        this.page = 1;
+        this.reload(true);
     }
+
 });
 
 
@@ -163,26 +228,26 @@ var DataTable = Backbone.View.extend({
     className: "table table-hover table-bordered infi-datatable",
 
     events: {
-        'click .settings > button': 'handle_settings',
-        'change .settings input':   'handle_visibility',
-        'click th.sortable':        'handle_sort',
-        'click tbody tr':           'handle_row_click'
+        'change .settings input':         'handle_visibility',
+        'click th.sortable':              'handle_sort',
+        'click .settings .dropdown-menu': 'prevent_settings_hide',
+        'click tbody tr':                 'handle_row_click'
     },
 
-    custom_row_styles: {},
+    custom_row_styles: function(model) { return [] },
 
-    row_template:      '<tr data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
+    row_template:      '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
                        '        <td class="td_<%- column.name %>"><%= values[index] %></td>' +
                        '    <% }) %>' +
                        '</tr>',
 
-    settings_template: '<div class="settings" style="position: absolute; right: 5px; top: 5px;">' +
-                       '    <button type="button" class="btn btn-default btn-xs"><i class="glyphicon glyphicon-th-list"></i></button>' +
-                       '    <div class="panel panel-default hidden" style="position: absolute; right: 0; white-space: nowrap;">' +
+    settings_template: '<div class="settings" style="position: absolute; right: 20px; top: 15px; z-index: 100;">' +
+                       '    <button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown"><i class="glyphicon glyphicon-th-list"></i></button>' +
+                       '    <div class="panel panel-default dropdown-menu dropdown-menu-right" style="white-space: nowrap; min-width: initial; font-size: inherit">' +
                        '        <% _.each(columns, function(c) { %>' +
-                       '            <label style="display: block; padding: 5px 20px 0 10px;">' +
-                       '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"> <%- column_title(c) %></label>' +
+                       '            <label class="themed-checkbox" style="display: block; padding: 5px 20px 0 10px;">' +
+                       '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"><span></span> <%- column_title(c) %></label>' +
                        '        <% }) %>' +
                        '    </div>' +
                        '</div>',
@@ -194,22 +259,36 @@ var DataTable = Backbone.View.extend({
                        '    }' +
                        '<% }) %>' +
                        '.infi-datatable { table-layout: fixed; }' +
-                       '.infi-datatable caption { position: relative; padding: 0; }' +
+                       '.infi-datatable caption { padding: 0; }' +
                        '.infi-datatable th .glyphicon-chevron-down { display: none; }' +
                        '.infi-datatable th .glyphicon-chevron-up { display: none; }' +
                        '.infi-datatable th.desc .glyphicon-chevron-down { display: inline-block; }' +
                        '.infi-datatable th.asc .glyphicon-chevron-up { display: inline-block; }',
 
+    download_template: '<div class="modal download-modal" tabindex="-1">' +
+                       '    <div class="modal-dialog modal-sm">' +
+                       '        <div class="modal-content">' +
+                       '            <div class="modal-body">' +
+                       '                <p>Preparing Download</p>' +
+                       '                <div class="progress">' +
+                       '                  <div class="progress-bar progress-bar-striped active"></div>' +
+                       '                </div>' +
+                       '            </div>' +
+                       '            <div class="modal-footer">' +
+                       '                <button type="button" class="btn btn-default">Cancel</button>' +
+                       '            </div>' +
+                       '        </div>' +
+                       '    </div>' +
+                       '</div>    ',
+
     initialize: function(options) {
         var self = this;
-        self.custom_row_styles = options.custom_row_styles;
+        self.custom_row_styles = options.custom_row_styles || this.custom_row_styles;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
-        self.visibility = {}
         _.each(self.columns, function(column) {
-            self.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
+            self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
         });
-        self.load_state();
         self.collection.on('reset', _.bind(self.render_tbody, self));
         self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
     },
@@ -247,6 +326,7 @@ var DataTable = Backbone.View.extend({
         _.each(this.columns, function(column) {
             var title = self.column_title(column);
             var th = $('<th/>').text(title).addClass('th_' + column.name).data('column', column.name);
+            th.data("default_sort", column.default_sort || 'asc');
             if (column.sortable != false) {
                 th.addClass('sortable').append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
             }
@@ -264,14 +344,8 @@ var DataTable = Backbone.View.extend({
             tbody.empty();
             var template = _.template(self.row_template);
             self.collection.each(function(model) {
-                var values = [];
-                _.each(self.columns, function(column) {
-                    var value = model.get(column.name);
-                    if (column.render) value = column.render({model: model, column: column, value: value});
-                    values.push(value);
-                });
-                var custom_classes =
-                    self.custom_row_styles[model.id];
+                var values = self.row_for_model(model);
+                var custom_classes = self.custom_row_styles(model);
                 var rowClassNameExpression = custom_classes ?
                     'class="' + custom_classes.join(' ') + '"' : '';
                 tbody.append(template({
@@ -283,6 +357,24 @@ var DataTable = Backbone.View.extend({
             });
         }
         self.trigger('data_rendered');
+        self.$el.keypress('tr', function(e) {
+            if (e.keyCode == 13) {
+                $(e.target).click();
+                e.stopImmediatePropagation();
+                return;
+            }
+        });
+    },
+
+    row_for_model: function(model) {
+        // Given a model, returns the array of column values to display
+        var values = [];
+        _.each(this.columns, function(column) {
+            var value = model.get(column.name);
+            if (column.render) value = column.render({model: model, column: column, value: value});
+            values.push(value);
+        });
+        return values;
     },
 
     render_css: function() {
@@ -315,49 +407,31 @@ var DataTable = Backbone.View.extend({
     },
 
     column_visible: function(column) {
-        return this.visibility[column.name];
-    },
-
-    /* Loading and saving the table state in session storage */
-
-    get_storage_key: function() {
-        return 'infi_datatable_' + this.id;
-    },
-
-    save_state: function() {
-        var state = {visibility: this.visibility};
-        sessionStorage.setItem(this.get_storage_key(), JSON.stringify(state));
-    },
-
-    load_state: function() {
-        try {
-            var state = JSON.parse(sessionStorage.getItem(this.get_storage_key()))
-            _.extend(this.visibility, state.visibility);
-        }
-        catch (e) {
-            console.log(e);
-        }
+        return this.collection.visibility[column.name];
     },
 
     /* Event handlers */
 
-    handle_settings: function(e) {
-        $(e.target).closest('button').next().toggleClass('hidden');
-    },
-
     handle_visibility: function(e) {
         var self = this;
         $('.settings input', this.el).each(function() {
-            self.visibility[$(this).attr('name')] = $(this).is(':checked');
+            self.collection.visibility[$(this).attr('name')] = $(this).is(':checked');
         });
-        self.save_state();
+        self.collection.save_state_to_storage();
         self.render_css();
+    },
+
+    prevent_settings_hide: function(e) {
+        e.stopPropagation();
     },
 
     handle_sort: function(e) {
         if (this.collection.is_loading()) return;
         var th = $(e.target).closest('th');
-        var asc = !th.hasClass('asc');
+        var asc;
+        if (th.hasClass('asc')) asc = false;
+        else if (th.hasClass('desc')) asc = true;
+        else asc = th.data('default_sort') == 'asc';
         this.render_sorting(th, asc);
         this.collection.set_sort((asc ? '' : '-') + th.data('column'));
     },
@@ -376,11 +450,66 @@ var DataTable = Backbone.View.extend({
         // Mark the sorted column
         var sort = this.collection.sort;
         var asc = true;
-        if (sort.startsWith('-')) {
+        if (sort && sort[0] == '-') {
             sort = sort.substr(1);
             asc = false;
         }
         this.render_sorting($('thead .th_' + sort, this.el), asc);
+    },
+
+    download: function(filename) {
+        // Clone the collection, so that we can download all pages without affecting the real collection
+        var self = this;
+        var collection = self.collection.clone();
+        collection._save_state_to_url = _.noop()
+        collection.page_size = 1000;
+        // Display the download modal
+        $('body').append(_.template(self.download_template)());
+        $('.download-modal').modal();
+        var cancelled = false;
+        $('.download-modal button').on('click', function() {
+            cancelled = true;
+            $('.download-modal').modal('hide').detach();
+        })
+        // Start building the data
+        var titles = _.map($('th', self.el), $.text);
+        var rows = [self.as_csv(titles)];
+        // This function is called once all pages were loaded
+        function save_downloaded_data() {
+            $('.download-modal').modal('hide').detach();
+            var blob = new Blob([rows.join('\n')], {type: 'text/csv'});
+            saveAs(blob, filename + '.csv'); // implemented by FileSaver.js
+        }
+        // This function is called recursively to download all pages
+        function download_page(page) {
+            collection.page = page;
+            collection.load(function() {
+                if (cancelled) return;
+                // Update progress bar
+                var progress = 100.0 * collection.metadata.page / collection.metadata.pages_total;
+                $('.download-modal .progress-bar').width(progress + '%');
+                // Convert the models to CSV rows
+                collection.each(function(model) {
+                    var values = self.row_for_model(model);
+                    rows.push(self.as_csv(values));
+                });
+                // Continue to next page or finish
+                if (collection.metadata.next) {
+                    download_page(page + 1);
+                }
+                else {
+                    save_downloaded_data();
+                }
+            });
+        };
+        // Initiate the download
+        download_page(1);
+    },
+
+    as_csv: function(values) {
+        // Convert an array of values to a CSV string, stripping any HTML tags
+        var row = '<div>"' + values.join('","') + '"</div>';
+        return $(row).text();
     }
 
 });
@@ -390,12 +519,15 @@ var DataTablePaginator = Backbone.View.extend({
 
     tagName: 'nav',
     className: 'infi-datatable-paginator',
+    show_settings: true,
+    is_primary: true,
+    page_sizes: [10, 30, 100],
 
     template: '&nbsp;<div class="btn-group" style="display: inline; float: right;">' +
               '    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown">' +
               '        <i class="glyphicon glyphicon-cog"></i>' +
               '    </button>' +
-              '    <ul class="dropdown-menu">' +
+              '    <ul class="dropdown-menu dropdown-menu-right">' +
               '        <% _.each(page_sizes, function(size) { %>' +
               '            <li><a href="#" class="menu-page-size" data-size="<%= size %>">Page Size: <%= size %></i></a></li>' +
               '        <% }); %>' +
@@ -408,6 +540,19 @@ var DataTablePaginator = Backbone.View.extend({
 
     initialize: function(options) {
         this.collection.on('reset', _.bind(this.render, this));
+        if (options) {
+            if (_.has(options, 'is_primary')) {
+                this.is_primary = options.is_primary;
+            }
+            if (_.has(options, 'show_settings')) {
+                this.show_settings = options.show_settings;
+            } else {
+                this.show_settings = this.is_primary;
+            }
+            if (_.has(options, 'page_sizes')) {
+                this.page_sizes = options.page_sizes;
+            }
+        }
     },
 
     render: function() {
@@ -419,7 +564,8 @@ var DataTablePaginator = Backbone.View.extend({
                 page: self.collection.metadata.page,
                 maxVisible: 5,
                 firstLastUse: true,
-                wrapClass: 'pagination pagination-lg',
+                leaps: false,
+                wrapClass: 'pagination',
                 first: '<i class="glyphicon glyphicon-step-backward"></i>',
                 last: '<i class="glyphicon glyphicon-step-forward">',
                 prev: '<i class="glyphicon glyphicon-backward"></i>',
@@ -427,9 +573,24 @@ var DataTablePaginator = Backbone.View.extend({
             }).on('page', function(event, num) {
                 self.collection.set_page(num);
             });
+            self.$el.on('keypress', function(e) {
+                if (e.keyCode == 'k'.charCodeAt(0) ) {
+                    self.collection.set_page(
+                        Math.min(self.collection.metadata.pages_total, self.collection.page + 1));
+                    e.stopImmediatePropagation();
+                    return;
+                }
+                if (e.keyCode == 'j'.charCodeAt(0)) {
+                    self.collection.set_page(Math.max(1, self.collection.page - 1)) ;
+                    e.stopImmediatePropagation();
+                    return;
+                }
+            });
         }
-        var settings = _.template(self.template)({page_sizes: [10, 30, 100]});
-        self.$el.append(settings);
+        if (self.show_settings) {
+            var settings = _.template(self.template)({page_sizes: self.page_sizes});
+            self.$el.append(settings);
+        }
         self.mark_current_page_size();
     },
 
@@ -483,7 +644,7 @@ var DataTableSimpleQuery = Backbone.View.extend({
     className: "infi-datatable-simple-query",
 
     template: '<div class="form-group has-feedback">' +
-              '    <input name="<%= field_name %>" placeholder="Search" class="form-control input-lg" maxlength="50" value="<%= field_value %>">' +
+              '    <input name="<%= field_name %>" placeholder="Search" class="form-control" maxlength="50" value="<%= field_value %>">' +
               '    <span class="glyphicon glyphicon-search form-control-feedback"></span>' +
               '</div>',
 
@@ -513,8 +674,8 @@ var DataTableSimpleQuery = Backbone.View.extend({
     ),
 
     get_query_params: function() {
-        var params = {}
-        params[this.field_name] = this.$el.find('input').val();
+        var params = []
+        params.push([this.field_name, this.$el.find('input').val()]);
         return params;
     },
 
@@ -546,6 +707,7 @@ var DataTableQueryBuilder = Backbone.View.extend({
         {type: 'in',           to_api: 'in',        nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'not_in',       to_api: 'out',       nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'between',      to_api: 'between',   nb_inputs: 2, multiple: false, apply_to: ['number', 'datetime']},
+        {type: 'isnull',       to_api: 'isnull',    nb_inputs: 1, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
     ],
 
     initialize: function(options) {
@@ -563,7 +725,9 @@ var DataTableQueryBuilder = Backbone.View.extend({
             },
             allow_empty: true,
             allow_groups: false,
-            conditions: ['AND']
+            conditions: ['AND'],
+            lang: {  "delete_rule": "Remove",
+                     "delete_group": "Remove"}
         });
         this.handle_collection_state();
     },
@@ -605,9 +769,9 @@ var DataTableQueryBuilder = Backbone.View.extend({
         // Convert the current rules into API query params
         var self = this;
         var rules = self.get_rules();
-        var params = {}
+        var params = []
         _.each(rules.rules, function(rule) {
-            params[rule.id] = self.operator_to_api(rule.operator) + ':' + rule.value.toString();
+            params.push([rule.id, self.operator_to_api(rule.operator) + ':' + rule.value.toString()]);
         });
         return params
     },
@@ -622,9 +786,16 @@ var DataTableQueryBuilder = Backbone.View.extend({
         // Convert the collection's filters into Query Builder rules
         var self = this;
         var rules = [];
+        var filter_field_names = _.pluck(this.filter_fields, 'id');
         _.each(self.collection.filters, function(value, key) {
-            var operator = value.split(':')[0];
-            var value = value.split(':')[1];
+            if (_.indexOf(filter_field_names, key) == -1) return; // skip unknown field names
+            var colon_location = value.indexOf(':');
+            if (colon_location == -1) {
+                operator = 'eq';
+            } else {
+                var operator = value.slice(0, colon_location);
+                var value = value.slice(colon_location + 1);
+            }
             if (operator == 'in' || operator == 'out' || operator == 'between') {
                 value = value.split(',');
             }
@@ -642,5 +813,4 @@ var DataTableQueryBuilder = Backbone.View.extend({
             self.$el.queryBuilder('reset');
         }
     }
-
 });
