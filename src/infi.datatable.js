@@ -140,7 +140,9 @@ var DataTableCollection = Backbone.Collection.extend({
                 error: function(collection, response, options) {
                     self.loading = false;
                     self.parse(response.responseJSON); // parse the response to update self.metadata
-                    if (response.status == '403') {
+                    if (response.status == 403) {
+                        self.metadata = {number_of_objects: 0};
+                        self.reset();
                         window.alert('Error: you are not logged in, data cannot be retrieved from the server, ' +
                             'please refresh the page.');
                     }
@@ -631,6 +633,7 @@ var DataTableCounter = Backbone.View.extend({
         var self = this;
         var metadata = self.collection.metadata;
         var count = metadata.number_of_objects.toLocaleString();
+        console.log('here', count)
         if (metadata.limited_number_of_objects && metadata.page < metadata.pages_total) {
             count = ">" + count;
         }
