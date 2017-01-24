@@ -259,7 +259,7 @@ var DataTable = Backbone.View.extend({
                        '</div>',
 
     css_template:      '<% _.each(self.columns, function(c) { %>' +
-                       '    .td_<%- c.name %>, .th_<%- c.name %> {' +
+                       '    #<%= self.id %> .td_<%- c.name %>, #<%= self.id %> .th_<%- c.name %> {' +
                        '        display: <% print(self.column_visible(c) ? "table-cell" : "none") %>;' +
                        '        width: <%- self.column_width(c) %>;' +
                        '    }' +
