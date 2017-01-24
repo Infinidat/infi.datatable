@@ -139,7 +139,10 @@ var DataTableCollection = Backbone.Collection.extend({
                 },
                 error: function(collection, response, options) {
                     self.loading = false;
-                    if (response.status == '403') {
+                    self.parse(response.responseJSON); // parse the response to update self.metadata
+                    if (response.status == 403) {
+                        self.metadata = {number_of_objects: 0};
+                        self.reset();
                         window.alert('Error: you are not logged in, data cannot be retrieved from the server, ' +
                             'please refresh the page.');
                     }
@@ -170,8 +173,11 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     parse: function(response) {
-        this.metadata = response.metadata;
-        return response.result;
+        if (response) {
+            this.metadata = response.metadata;
+            return response.result;
+        }
+        return null;
     },
 
     is_loading: function() {
