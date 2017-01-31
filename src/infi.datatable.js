@@ -24,7 +24,7 @@ var DataTableCollection = Backbone.Collection.extend({
 
         // Update the collection state when BACK button is pressed
         window.addEventListener('popstate', function(e) {
-            if (e.state) {
+            if (window.location.search) {
                 self._restore_state_from_url();
             } else {
                 self._reset_state();
@@ -259,7 +259,7 @@ var DataTable = Backbone.View.extend({
                        '</div>',
 
     css_template:      '<% _.each(self.columns, function(c) { %>' +
-                       '    .td_<%- c.name %>, .th_<%- c.name %> {' +
+                       '    #<%= self.id %> .td_<%- c.name %>, #<%= self.id %> .th_<%- c.name %> {' +
                        '        display: <% print(self.column_visible(c) ? "table-cell" : "none") %>;' +
                        '        width: <%- self.column_width(c) %>;' +
                        '    }' +
@@ -633,7 +633,6 @@ var DataTableCounter = Backbone.View.extend({
         var self = this;
         var metadata = self.collection.metadata;
         var count = metadata.number_of_objects.toLocaleString();
-        console.log('here', count)
         if (metadata.limited_number_of_objects && metadata.page < metadata.pages_total) {
             count = ">" + count;
         }
