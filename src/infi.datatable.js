@@ -222,6 +222,15 @@ var DataTableCollection = Backbone.Collection.extend({
         this.filters = filters;
         this.page = 1;
         this.reload(true);
+    },
+
+    get_filter_value: function(name) {
+        for (var i = 0; i < this.filters.length; i++) {
+            if (this.filters[i][0] == name) {
+                return this.filters[i][1];
+            }
+        }
+        return null;
     }
 
 });
@@ -667,7 +676,7 @@ var DataTableSimpleQuery = Backbone.View.extend({
     render: function() {
         var html = _.template(this.template)({
             field_name: this.field_name,
-            field_value: this.collection.filters[this.field_name] || ''
+            field_value: this.collection.get_filter_value(this.field_name) || ''
         });
         this.$el.html(html);
     },
@@ -691,7 +700,7 @@ var DataTableSimpleQuery = Backbone.View.extend({
 
     handle_collection_state: function() {
         // Update the contents of the search field
-        $('input', this.el).val(this.collection.filters[this.field_name]);
+        $('input', this.el).val(this.collection.get_filter_value(this.field_name));
     }
 
 });
@@ -793,7 +802,9 @@ var DataTableQueryBuilder = Backbone.View.extend({
         var self = this;
         var rules = [];
         var filter_field_names = _.pluck(this.filter_fields, 'id');
-        _.each(self.collection.filters, function(value, key) {
+        _.each(self.collection.filters, function(filter) {
+            var key = filter[0];
+            var value = filter[1];
             if (_.indexOf(filter_field_names, key) == -1) return; // skip unknown field names
             var colon_location = value.indexOf(':');
             if (colon_location == -1) {
