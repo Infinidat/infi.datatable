@@ -381,12 +381,12 @@ var DataTable = Backbone.View.extend({
         });
     },
 
-    row_for_model: function(model) {
+    row_for_model: function(model, use_raw_values) {
         // Given a model, returns the array of column values to display
         var values = [];
         _.each(this.columns, function(column) {
             var value = model.get(column.name);
-            if (column.render) value = column.render({model: model, column: column, value: value});
+            if (column.render && !use_raw_values) value = column.render({model: model, column: column, value: value});
             values.push(value);
         });
         return values;
@@ -505,7 +505,7 @@ var DataTable = Backbone.View.extend({
                 $('.download-modal .progress-bar').width(progress + '%');
                 // Convert the models to CSV rows
                 collection.each(function(model) {
-                    var values = self.row_for_model(model);
+                    var values = self.row_for_model(model, true);
                     rows.push(self.as_csv(values));
                 });
                 // Continue to next page or finish
