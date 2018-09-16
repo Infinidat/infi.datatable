@@ -123,16 +123,21 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
-    load: function(on_success) {
+    load: function(reset, on_success) {
+        // Loads the collection.
+        // reset - whether to clear the current models in the collection
+        // on_success - optionally called after loading
         var self = this;
         if (!self.loading) {
             self.loading = true;
             self.trigger('data_requested');
             self.last_request_data = self.get_request_data();
+            if (reset === undefined) reset = true;
             self.fetch({
                 headers: self.get_request_headers(),
                 data: self._serialize_params(self.last_request_data),
-                reset: true,
+                reset: reset,
+                remove: false,
                 success: function(collection, response, options) {
                     self.loading = false;
                     if (on_success) on_success(collection, response, options);
@@ -158,7 +163,7 @@ var DataTableCollection = Backbone.Collection.extend({
             if (save_state_to_storage) {
                 this._save_state_to_url();
             }
-            this.load();
+            this.load(true);
         }
     },
 
@@ -209,6 +214,20 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
+    is_last_page: function() {
+        // Returns true if the current page is the last one
+        return this.page >= this.metadata.pages_total;
+    },
+
+    next_page: function(on_success) {
+        // Load the next page into the collection, without removing existing
+        // items. This is useful for implementing "infinite scrolling".
+        if (!this.is_last_page() && !this.is_loading()) {
+            this.page++;
+            this.load(false, on_success);
+        }
+    },
+
     set_page_size: function(page_size) {
         if (this.page_size != page_size) {
             this.page_size = page_size;
@@ -253,7 +272,7 @@ var DataTable = Backbone.View.extend({
 
     row_template:      '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
-                       '        <td class="td_<%- column.name %>"><%= values[index] %></td>' +
+                       '        <td class="td_<%- column.name %> <%- column.classes %>"><%= values[index] %></td>' +
                        '    <% }) %>' +
                        '</tr>',
 
@@ -304,8 +323,10 @@ var DataTable = Backbone.View.extend({
         _.each(self.columns, function(column) {
             self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
         });
-        self.collection.on('reset', _.bind(self.render_tbody, self));
+        self.collection.on('reset update', _.bind(self.render_tbody, self));
         self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
+        self.fixed_header = !!options.fixed_header;
+        self.should_init_fixed_header = self.fixed_header;
     },
 
     /* Rendering */
@@ -340,7 +361,7 @@ var DataTable = Backbone.View.extend({
         thead.append(tr);
         _.each(this.columns, function(column) {
             var title = self.column_title(column);
-            var th = $('<th/>').text(title).addClass('th_' + column.name).data('column', column.name);
+            var th = $('<th/>').html(title).addClass('th_' + column.name).data('column', column.name);
             th.data("default_sort", column.default_sort || 'asc');
             if (column.sortable != false) {
                 th.addClass('sortable').append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
@@ -371,7 +392,17 @@ var DataTable = Backbone.View.extend({
                 }));
             });
         }
+        if (self.should_init_fixed_header) {
+            // Initialize jQuery.floatThead
+            self.$el.floatThead();
+            // Handle clicks on the cloned table headers created by jQuery.floatThead
+            self.$el.parent().on('click', '.floatThead-table th.sortable', _.bind(self.handle_sort, self));
+            // Initialize only once
+            self.should_init_fixed_header = false;
+        }
+        // Trigger data_rendered event
         self.trigger('data_rendered');
+        // Handle ENTER keypresses
         self.$el.keypress('tr', function(e) {
             if (e.keyCode == 13) {
                 $(e.target).click();
@@ -469,7 +500,11 @@ var DataTable = Backbone.View.extend({
             sort = sort.substr(1);
             asc = false;
         }
-        this.render_sorting($('thead .th_' + sort, this.el), asc);
+        this.render_sorting($('thead .th_' + sort, this.$el), asc);
+        if (this.fixed_header) {
+            // Mark the column on the cloned table headers created by jQuery.floatThead
+            this.render_sorting($('.floatThead-table thead .th_' + sort, this.$el.parent()), asc);
+        }
     },
 
     download: function(filename) {
@@ -479,26 +514,25 @@ var DataTable = Backbone.View.extend({
         collection._save_state_to_url = _.noop()
         collection.page_size = 1000;
         // Display the download modal
-        $('body').append(_.template(self.download_template)());
-        $('.download-modal').modal();
+        self.show_download_modal();
         var cancelled = false;
         $('.download-modal button').on('click', function() {
             cancelled = true;
-            $('.download-modal').modal('hide').detach();
+            self.hide_download_modal();
         })
         // Start building the data
         var titles = _.map($('th', self.el), $.text);
         var rows = [self.as_csv(titles)];
         // This function is called once all pages were loaded
         function save_downloaded_data() {
-            $('.download-modal').modal('hide').detach();
+            self.hide_download_modal();
             var blob = new Blob([rows.join('\n')], {type: 'text/csv'});
             saveAs(blob, filename + '.csv'); // implemented by FileSaver.js
         }
         // This function is called recursively to download all pages
         function download_page(page) {
             collection.page = page;
-            collection.load(function() {
+            collection.load(true, function() {
                 if (cancelled) return;
                 // Update progress bar
                 var progress = 100.0 * collection.metadata.page / collection.metadata.pages_total;
@@ -525,6 +559,15 @@ var DataTable = Backbone.View.extend({
         // Convert an array of values to a CSV string, stripping any HTML tags
         var row = '<div>"' + values.join('","') + '"</div>';
         return $(row).text();
+    },
+
+    show_download_modal() {
+        $('body').append(_.template(self.download_template)());
+        $('.download-modal').modal();
+    },
+
+    hide_download_modal() {
+        $('.download-modal').modal('hide').detach();
     }
 
 });

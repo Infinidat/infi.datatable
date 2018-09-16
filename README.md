@@ -26,6 +26,7 @@ Dependencies
 * Bootpag 1.0.7+ (http://botmonster.com/jquery-bootpag/) - required for DataTablePaginator
 * jQuery QueryBuilder 2.3+ (http://mistic100.github.io/jQuery-QueryBuilder/) - required for DataTableQueryBuilder
 * FileSaver.js (https://github.com/eligrey/FileSaver.js) - required for client-side data export
+* jQuery floatThead (http://mkoryak.github.io/floatThead/) - required if fixed_header is used
 
 Classes
 =======
@@ -91,7 +92,8 @@ var dt = new DataTable({
         {...}
     ],
     row_click_callback: function(model) {
-    }
+    },
+    fixed_header: false
 });
 $('.container').append(dt.el);
 ```
@@ -100,7 +102,7 @@ The required properties are `id`, `collection` and `columns`. The `columns` list
 and each column can have the following properties:
 
 * **name** - this is the only required property. It typically matches one of the attribute names in the collection's models.
-* **title** - the column title. If not specified, it is created based on the name.
+* **title** - the column title. If not specified, it is created based on the name. Can contain HTML.
 * **width** - the column width, either as number of pixels or as a CSS length expression (e.g. "10em").
   If not specified the width will be set to "auto".
 * **visible** - whether the column will be visible by default. The table may have several hidden columns,
@@ -108,9 +110,12 @@ and each column can have the following properties:
 * **sortable** - whether the column can be sorted. Defaults to true.
 * **render** - defines a custom function for rendering the cell's contents to HTML. The function receives an object with
   three properties: `model`, `column` and `value`, and should return the formatted value.
+* **classes** - optional custom class names (separated by blanks) to add to each cell in the column.
 
 The optional `row_click_callback` can be used for handling clicks on the table rows.
 It gets the model displayed by the clicked row.
+
+If `fixed_header` is set to true, the table will use jQuery.floatThead to fix the table header in place while the rest of the table scrolls. See http://mkoryak.github.io/floatThead/ for details.
 
 #### Styling the table
 
@@ -119,7 +124,7 @@ By default the table gets assigned the Bootstrap classes `table`, `table-hover` 
 but you can change this by overriding the view's `className` property.
 
 Each table cell gets a class derived from its column name. For example if the column name is "timestamp",
-the cells' class will be `th_timestamp` and `td_timestamp`. This makes it easy to style each column separately.
+the cells' class will be `th_timestamp` and `td_timestamp`. This makes it easy to style each column separately. Additionally you can use the `classes` property to add class names to the cells in specific columns.
 
 Table header cells also get the classes `sortable` (if the column is sortable), `asc` (when sorted in ascending order)
 and `desc` (when sorted in descending order).
