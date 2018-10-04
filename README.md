@@ -110,6 +110,7 @@ and each column can have the following properties:
 * **sortable** - whether the column can be sorted. Defaults to true.
 * **render** - defines a custom function for rendering the cell's contents to HTML. The function receives an object with
   three properties: `model`, `column` and `value`, and should return the formatted value.
+* **render_in_download** - whether the column will be rendered during downloading the table, or will be downloaded as its raw data. 
 * **classes** - optional custom class names (separated by blanks) to add to each cell in the column.
 
 The optional `row_click_callback` can be used for handling clicks on the table rows.

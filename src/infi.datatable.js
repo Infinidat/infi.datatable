@@ -412,12 +412,17 @@ var DataTable = Backbone.View.extend({
         });
     },
 
-    row_for_model: function(model, use_raw_values) {
+    row_for_model: function(model, is_csv) {
         // Given a model, returns the array of column values to display
         var values = [];
         _.each(this.columns, function(column) {
             var value = model.get(column.name);
-            if (column.render && !use_raw_values) value = column.render({model: model, column: column, value: value});
+            // if being called from download method, need to check if the column was set to use render during the download
+            if (is_csv){
+                if (column.render && column.render_in_download) value = column.render({model: model, column: column, value: value});
+            } else {
+                if (column.render) value = column.render({model: model, column: column, value: value});
+            }
             values.push(value);
         });
         return values;
