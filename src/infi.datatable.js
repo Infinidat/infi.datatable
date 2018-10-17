@@ -415,8 +415,9 @@ var DataTable = Backbone.View.extend({
     row_for_model: function(model, is_csv) {
         // Given a model, returns the array of column values to display
         var values = [];
+        var self = this;
         _.each(this.columns, function(column) {
-            var value = model.get(column.name);
+            var value = self.get_value(model, column);
             // if being called from download method, need to check if the column was set to use render during the download
             if (is_csv){
                 if (column.render && column.render_in_download) value = column.render({model: model, column: column, value: value});
@@ -426,6 +427,39 @@ var DataTable = Backbone.View.extend({
             values.push(value);
         });
         return values;
+    },
+
+    get_value: function(model, column){
+        //helper method to find the given column's value in the model
+        // if the column.name addresses a nested field (contains '.') it will dig into the model
+        var keys = column.name.split('.');
+        var key = keys[0];
+        var nested_keys = keys.slice(1);
+        var value = model.get(key);
+        if (value != null && typeof(value) == 'object'){
+            return this.nested_value(value, nested_keys);
+        } else {
+            return value;
+        }
+    },
+
+    nested_value: function(value, columns){
+        // for a given object value and a list of columns names representing the path to the required nested field
+        // the function will get into the object and will return the nested value
+        var res = value;
+        if (columns){
+            _.each(columns, function(c){
+                if (res != null && typeof(res)=='object'){
+                    // get into the next nested level
+                    res = res[c]
+                } else {
+                    // if didn't find some inner column during the path, the function will return null
+                    res = null;
+                }
+             }
+            );
+        }
+        return res;
     },
 
     render_css: function() {
