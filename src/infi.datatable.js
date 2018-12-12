@@ -325,8 +325,6 @@ var DataTable = Backbone.View.extend({
         });
         self.collection.on('reset update', _.bind(self.render_tbody, self));
         self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
-        self.fixed_header = !!options.fixed_header;
-        self.should_init_fixed_header = self.fixed_header;
     },
 
     /* Rendering */
@@ -360,12 +358,14 @@ var DataTable = Backbone.View.extend({
         var tr = $('<tr/>');
         thead.append(tr);
         _.each(this.columns, function(column) {
-            var title = self.column_title(column);
-            var th = $('<th/>').html(title).addClass('th_' + column.name).data('column', column.name);
-            th.data("default_sort", column.default_sort || 'asc');
+            var title = $('<div/>').html(self.column_title(column));
+            var th = $('<th/>').addClass('th_' + column.name).data('column', column.name);
             if (column.sortable != false) {
-                th.addClass('sortable').append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
+                title.append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
+                th.addClass('sortable');
             }
+            th.html(title);
+            th.data("default_sort", column.default_sort || 'asc');
             tr.append(th);
         });
     },
@@ -391,14 +391,6 @@ var DataTable = Backbone.View.extend({
                   rowClassNameExpression: rowClassNameExpression
                 }));
             });
-        }
-        if (self.should_init_fixed_header) {
-            // Initialize jQuery.floatThead
-            self.$el.floatThead();
-            // Handle clicks on the cloned table headers created by jQuery.floatThead
-            self.$el.parent().on('click', '.floatThead-table th.sortable', _.bind(self.handle_sort, self));
-            // Initialize only once
-            self.should_init_fixed_header = false;
         }
         // Trigger data_rendered event
         self.trigger('data_rendered');
@@ -540,10 +532,6 @@ var DataTable = Backbone.View.extend({
             asc = false;
         }
         this.render_sorting($('thead .th_' + sort, this.$el), asc);
-        if (this.fixed_header) {
-            // Mark the column on the cloned table headers created by jQuery.floatThead
-            this.render_sorting($('.floatThead-table thead .th_' + sort, this.$el.parent()), asc);
-        }
     },
 
     download: function(filename) {
@@ -809,6 +797,7 @@ var DataTableQueryBuilder = Backbone.View.extend({
 
     initialize: function(options) {
         this.filter_fields = options.filter_fields;
+        this.plugins = options.plugins || { 'bt-tooltip-errors': { delay: 100 }, 'filter-description': {} };
         this.collection.on('state:reset state:restore', _.bind(this.handle_collection_state, this));
     },
 
@@ -816,10 +805,7 @@ var DataTableQueryBuilder = Backbone.View.extend({
         this.$el.queryBuilder({
             filters: this.filter_fields,
             operators: this.operators,
-            plugins: {
-                'bt-tooltip-errors': { delay: 100 },
-                'filter-description': {}
-            },
+            plugins: this.plugins,
             allow_empty: true,
             allow_groups: false,
             conditions: ['AND'],

@@ -26,7 +26,6 @@ Dependencies
 * Bootpag 1.0.7+ (http://botmonster.com/jquery-bootpag/) - required for DataTablePaginator
 * jQuery QueryBuilder 2.3+ (http://mistic100.github.io/jQuery-QueryBuilder/) - required for DataTableQueryBuilder
 * FileSaver.js (https://github.com/eligrey/FileSaver.js) - required for client-side data export
-* jQuery floatThead (http://mkoryak.github.io/floatThead/) - required if fixed_header is used
 
 Classes
 =======
@@ -92,8 +91,7 @@ var dt = new DataTable({
         {...}
     ],
     row_click_callback: function(model) {
-    },
-    fixed_header: false
+    }
 });
 $('.container').append(dt.el);
 ```
@@ -110,13 +108,11 @@ and each column can have the following properties:
 * **sortable** - whether the column can be sorted. Defaults to true.
 * **render** - defines a custom function for rendering the cell's contents to HTML. The function receives an object with
   three properties: `model`, `column` and `value`, and should return the formatted value.
-* **render_in_download** - whether the column will be rendered during downloading the table, or will be downloaded as its raw data. 
+* **render_in_download** - whether the column will be rendered during downloading the table, or will be downloaded as its raw data.
 * **classes** - optional custom class names (separated by blanks) to add to each cell in the column.
 
 The optional `row_click_callback` can be used for handling clicks on the table rows.
 It gets the model displayed by the clicked row.
-
-If `fixed_header` is set to true, the table will use jQuery.floatThead to fix the table header in place while the rest of the table scrolls. See http://mkoryak.github.io/floatThead/ for details.
 
 #### Styling the table
 
@@ -142,6 +138,59 @@ $('#export_button').on('click', function() {
 });
 ```
 
+#### Fixed table headers
+
+The table's DOM is suitable for creating fixed table headers using CSS as described here: http://salzerdesign.com/blog/?p=191
+
+The required HTML structure is:
+
+```html
+<div class="fixed-table-container">
+    <div class="fixed-table-header-bg"></div>
+    <div class="container">
+        <!-- The table is built inside this container -->
+    </div>
+</div>
+```
+
+And the required CSS (modify to fit your needs):
+
+```css
+.fixed-table-container {
+    position: relative;
+    padding-top: 4.8rem;
+    height: 500px;
+}
+
+.fixed-table-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4.8rem;
+    border-bottom: 0.1rem solid #cecece;
+    background-color: #fff;
+}
+
+.fixed-table-container thead th {
+    padding: 0;
+    line-height: 0;
+    border-bottom: none;
+}
+
+.fixed-table-container thead th > div {
+    position: absolute;
+    top: 0;
+    line-height: normal;
+    padding: 1.6rem;
+}
+
+.container {
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: 100%;
+}
+```
 ### DataTablePaginator
 
 A view that uses Bootpag (http://botmonster.com/jquery-bootpag/) for paginating through the collection.
@@ -201,7 +250,8 @@ var qb = new DataTableQueryBuilder({
         {id: 'seqnum', type: 'integer'},
         {id: 'description', type: 'string'},
         {id: 'level', type: 'string', value: ['INFO', 'WARNING', 'ERROR'], input: 'radio'}
-    ]
+    ],
+    plugins: {} // optional
 });
 $('#search_container').html(qb.el);
 qb.render();
@@ -209,3 +259,5 @@ qb.render();
 
 The `filter_fields` array defines which fields can be filtered on. Refer to the jQuery QueryBuilder documentation
 for details about the options available when defining such fields.
+
+You can optionally pass a `plugins` object as described in the jQuery QueryBuilder documentation.
