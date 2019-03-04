@@ -123,7 +123,7 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
-    load: function(reset, on_success) {
+     load: function(reset, on_success) {
         // Loads the collection.
         // reset - whether to clear the current models in the collection
         // on_success - optionally called after loading
@@ -272,7 +272,7 @@ var DataTable = Backbone.View.extend({
 
     row_template:      '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
-                       '        <td class="td_<%- column.name %> <%- column.classes %>"><%= values[index] %></td>' +
+                       '        <td class="td_<%- column.name.replace(".", "_") %> <%- column.classes %>"><%= values[index] %></td>' +
                        '    <% }) %>' +
                        '</tr>',
 
@@ -287,7 +287,7 @@ var DataTable = Backbone.View.extend({
                        '</div>',
 
     css_template:      '<% _.each(self.columns, function(c) { %>' +
-                       '    #<%= self.id %> .td_<%- c.name %>, #<%= self.id %> .th_<%- c.name %> {' +
+                       '    #<%= self.id %> .td_<%- c.name.replace(".", "_") %>, #<%= self.id %> .th_<%- c.name.replace(".", "_") %> {' +
                        '        display: <% print(self.column_visible(c) ? "table-cell" : "none") %>;' +
                        '        width: <%- self.column_width(c) %>;' +
                        '    }' +
@@ -359,7 +359,7 @@ var DataTable = Backbone.View.extend({
         thead.append(tr);
         _.each(this.columns, function(column) {
             var title = $('<div/>').html(self.column_title(column));
-            var th = $('<th/>').addClass('th_' + column.name).data('column', column.name);
+            var th = $('<th/>').addClass('th_' + column.name.replace('.', '_')).data('column', column.name);
             if (column.sortable != false) {
                 title.append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
                 th.addClass('sortable');
@@ -792,7 +792,8 @@ var DataTableQueryBuilder = Backbone.View.extend({
         {type: 'in',           to_api: 'in',        nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'not_in',       to_api: 'out',       nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'between',      to_api: 'between',   nb_inputs: 2, multiple: false, apply_to: ['number', 'datetime']},
-        {type: 'isnull',       to_api: 'isnull',    nb_inputs: 1, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
+        {type: 'is null',       to_api: 'isnull',    nb_inputs: 0, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
+        {type: 'is not null',    to_api: 'isnotnull', nb_inputs: 0, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
     ],
 
     initialize: function(options) {
@@ -854,7 +855,13 @@ var DataTableQueryBuilder = Backbone.View.extend({
         var rules = self.get_rules();
         var params = []
         _.each(rules.rules, function(rule) {
-            params.push([rule.id, self.operator_to_api(rule.operator) + ':' + rule.value.toString()]);
+            var value = self.operator_to_api(rule.operator);
+            if (rule.value){
+                value += ':' + rule.value.toString();
+            } else {
+                value += ':1';
+            }
+            params.push([rule.id, value]);
         });
         return params
     },
@@ -868,21 +875,28 @@ var DataTableQueryBuilder = Backbone.View.extend({
     handle_collection_state: function() {
         // Convert the collection's filters into Query Builder rules
         var self = this;
+        var operator, value, key;
         var rules = [];
         var filter_field_names = _.pluck(this.filter_fields, 'id');
         _.each(self.collection.filters, function(filter) {
-            var key = filter[0];
-            var value = filter[1];
+            key = filter[0];
+            value = filter[1];
             if (_.indexOf(filter_field_names, key) == -1) return; // skip unknown field names
             var colon_location = value.indexOf(':');
             if (colon_location == -1) {
-                operator = 'eq';
+                  operator = 'eq';
             } else {
-                var operator = value.slice(0, colon_location);
-                var value = value.slice(colon_location + 1);
+                operator = value.slice(0, colon_location);
+                value = value.slice(colon_location + 1);
             }
             if (operator == 'in' || operator == 'out' || operator == 'between') {
                 value = value.split(',');
+            }
+            if (operator == 'isnull' || operator == 'isnotnull'){
+                //if value = 0, need to change isnull to isnotnull and vice versa
+                if (value == "0"){
+                    operator = operator == 'isnull' ? 'isnotnull' : 'isnull';
+                }
             }
             rules.push({
                 id: key,
