@@ -100,7 +100,7 @@ The required properties are `id`, `collection` and `columns`. The `columns` list
 and each column can have the following properties:
 
 * **name** - this is the only required property. It typically matches one of the attribute names in the collection's models.
-* **title** - the column title. If not specified, it is created based on the name.
+* **title** - the column title. If not specified, it is created based on the name. Can contain HTML.
 * **width** - the column width, either as number of pixels or as a CSS length expression (e.g. "10em").
   If not specified the width will be set to "auto".
 * **visible** - whether the column will be visible by default. The table may have several hidden columns,
@@ -108,6 +108,8 @@ and each column can have the following properties:
 * **sortable** - whether the column can be sorted. Defaults to true.
 * **render** - defines a custom function for rendering the cell's contents to HTML. The function receives an object with
   three properties: `model`, `column` and `value`, and should return the formatted value.
+* **render_in_download** - whether the column will be rendered during downloading the table, or will be downloaded as its raw data.
+* **classes** - optional custom class names (separated by blanks) to add to each cell in the column.
 
 The optional `row_click_callback` can be used for handling clicks on the table rows.
 It gets the model displayed by the clicked row.
@@ -119,7 +121,7 @@ By default the table gets assigned the Bootstrap classes `table`, `table-hover` 
 but you can change this by overriding the view's `className` property.
 
 Each table cell gets a class derived from its column name. For example if the column name is "timestamp",
-the cells' class will be `th_timestamp` and `td_timestamp`. This makes it easy to style each column separately.
+the cells' class will be `th_timestamp` and `td_timestamp`. This makes it easy to style each column separately. Additionally you can use the `classes` property to add class names to the cells in specific columns.
 
 Table header cells also get the classes `sortable` (if the column is sortable), `asc` (when sorted in ascending order)
 and `desc` (when sorted in descending order).
@@ -136,6 +138,59 @@ $('#export_button').on('click', function() {
 });
 ```
 
+#### Fixed table headers
+
+The table's DOM is suitable for creating fixed table headers using CSS as described here: http://salzerdesign.com/blog/?p=191
+
+The required HTML structure is:
+
+```html
+<div class="fixed-table-container">
+    <div class="fixed-table-header-bg"></div>
+    <div class="container">
+        <!-- The table is built inside this container -->
+    </div>
+</div>
+```
+
+And the required CSS (modify to fit your needs):
+
+```css
+.fixed-table-container {
+    position: relative;
+    padding-top: 4.8rem;
+    height: 500px;
+}
+
+.fixed-table-header-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4.8rem;
+    border-bottom: 0.1rem solid #cecece;
+    background-color: #fff;
+}
+
+.fixed-table-container thead th {
+    padding: 0;
+    line-height: 0;
+    border-bottom: none;
+}
+
+.fixed-table-container thead th > div {
+    position: absolute;
+    top: 0;
+    line-height: normal;
+    padding: 1.6rem;
+}
+
+.container {
+    overflow-x: hidden;
+    overflow-y: auto;
+    height: 100%;
+}
+```
 ### DataTablePaginator
 
 A view that uses Bootpag (http://botmonster.com/jquery-bootpag/) for paginating through the collection.
@@ -195,7 +250,8 @@ var qb = new DataTableQueryBuilder({
         {id: 'seqnum', type: 'integer'},
         {id: 'description', type: 'string'},
         {id: 'level', type: 'string', value: ['INFO', 'WARNING', 'ERROR'], input: 'radio'}
-    ]
+    ],
+    plugins: {} // optional
 });
 $('#search_container').html(qb.el);
 qb.render();
@@ -203,3 +259,5 @@ qb.render();
 
 The `filter_fields` array defines which fields can be filtered on. Refer to the jQuery QueryBuilder documentation
 for details about the options available when defining such fields.
+
+You can optionally pass a `plugins` object as described in the jQuery QueryBuilder documentation.

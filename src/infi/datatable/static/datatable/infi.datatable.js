@@ -24,7 +24,7 @@ var DataTableCollection = Backbone.Collection.extend({
 
         // Update the collection state when BACK button is pressed
         window.addEventListener('popstate', function(e) {
-            if (e.state) {
+            if (window.location.search) {
                 self._restore_state_from_url();
             } else {
                 self._reset_state();
@@ -123,16 +123,21 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
-    load: function(on_success) {
+     load: function(reset, on_success) {
+        // Loads the collection.
+        // reset - whether to clear the current models in the collection
+        // on_success - optionally called after loading
         var self = this;
         if (!self.loading) {
             self.loading = true;
             self.trigger('data_requested');
             self.last_request_data = self.get_request_data();
+            if (reset === undefined) reset = true;
             self.fetch({
                 headers: self.get_request_headers(),
                 data: self._serialize_params(self.last_request_data),
-                reset: true,
+                reset: reset,
+                remove: false,
                 success: function(collection, response, options) {
                     self.loading = false;
                     if (on_success) on_success(collection, response, options);
@@ -158,7 +163,7 @@ var DataTableCollection = Backbone.Collection.extend({
             if (save_state_to_storage) {
                 this._save_state_to_url();
             }
-            this.load();
+            this.load(true);
         }
     },
 
@@ -209,6 +214,20 @@ var DataTableCollection = Backbone.Collection.extend({
         }
     },
 
+    is_last_page: function() {
+        // Returns true if the current page is the last one
+        return this.page >= this.metadata.pages_total;
+    },
+
+    next_page: function(on_success) {
+        // Load the next page into the collection, without removing existing
+        // items. This is useful for implementing "infinite scrolling".
+        if (!this.is_last_page() && !this.is_loading()) {
+            this.page++;
+            this.load(false, on_success);
+        }
+    },
+
     set_page_size: function(page_size) {
         if (this.page_size != page_size) {
             this.page_size = page_size;
@@ -222,6 +241,15 @@ var DataTableCollection = Backbone.Collection.extend({
         this.filters = filters;
         this.page = 1;
         this.reload(true);
+    },
+
+    get_filter_value: function(name) {
+        for (var i = 0; i < this.filters.length; i++) {
+            if (this.filters[i][0] == name) {
+                return this.filters[i][1];
+            }
+        }
+        return null;
     }
 
 });
@@ -244,7 +272,7 @@ var DataTable = Backbone.View.extend({
 
     row_template:      '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                        '    <% _.each(columns, function(column, index) { %>' +
-                       '        <td class="td_<%- column.name %>"><%= values[index] %></td>' +
+                       '        <td class="td_<%- column.name.replace(".", "_") %> <%- column.classes %>"><%= values[index] %></td>' +
                        '    <% }) %>' +
                        '</tr>',
 
@@ -259,7 +287,7 @@ var DataTable = Backbone.View.extend({
                        '</div>',
 
     css_template:      '<% _.each(self.columns, function(c) { %>' +
-                       '    #<%= self.id %> .td_<%- c.name %>, #<%= self.id %> .th_<%- c.name %> {' +
+                       '    #<%= self.id %> .td_<%- c.name.replace(".", "_") %>, #<%= self.id %> .th_<%- c.name.replace(".", "_") %> {' +
                        '        display: <% print(self.column_visible(c) ? "table-cell" : "none") %>;' +
                        '        width: <%- self.column_width(c) %>;' +
                        '    }' +
@@ -295,7 +323,7 @@ var DataTable = Backbone.View.extend({
         _.each(self.columns, function(column) {
             self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
         });
-        self.collection.on('reset', _.bind(self.render_tbody, self));
+        self.collection.on('reset update', _.bind(self.render_tbody, self));
         self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
     },
 
@@ -330,12 +358,14 @@ var DataTable = Backbone.View.extend({
         var tr = $('<tr/>');
         thead.append(tr);
         _.each(this.columns, function(column) {
-            var title = self.column_title(column);
-            var th = $('<th/>').text(title).addClass('th_' + column.name).data('column', column.name);
-            th.data("default_sort", column.default_sort || 'asc');
+            var title = $('<div/>').html(self.column_title(column));
+            var th = $('<th/>').addClass('th_' + column.name.replace('.', '_')).data('column', column.name);
             if (column.sortable != false) {
-                th.addClass('sortable').append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
+                title.append('<i class="glyphicon glyphicon-chevron-up"></i><i class="glyphicon glyphicon-chevron-down"></i>');
+                th.addClass('sortable');
             }
+            th.html(title);
+            th.data("default_sort", column.default_sort || 'asc');
             tr.append(th);
         });
     },
@@ -362,7 +392,9 @@ var DataTable = Backbone.View.extend({
                 }));
             });
         }
+        // Trigger data_rendered event
         self.trigger('data_rendered');
+        // Handle ENTER keypresses
         self.$el.keypress('tr', function(e) {
             if (e.keyCode == 13) {
                 $(e.target).click();
@@ -372,15 +404,54 @@ var DataTable = Backbone.View.extend({
         });
     },
 
-    row_for_model: function(model) {
+    row_for_model: function(model, is_csv) {
         // Given a model, returns the array of column values to display
         var values = [];
+        var self = this;
         _.each(this.columns, function(column) {
-            var value = model.get(column.name);
-            if (column.render) value = column.render({model: model, column: column, value: value});
+            var value = self.get_value(model, column);
+            // if being called from download method, need to check if the column was set to use render during the download
+            if (is_csv){
+                if (column.render && column.render_in_download) value = column.render({model: model, column: column, value: value});
+            } else {
+                if (column.render) value = column.render({model: model, column: column, value: value});
+            }
             values.push(value);
         });
         return values;
+    },
+
+    get_value: function(model, column){
+        //helper method to find the given column's value in the model
+        // if the column.name addresses a nested field (contains '.') it will dig into the model
+        var keys = column.name.split('.');
+        var key = keys[0];
+        var nested_keys = keys.slice(1);
+        var value = model.get(key);
+        if (value != null && typeof(value) == 'object'){
+            return this.nested_value(value, nested_keys);
+        } else {
+            return value;
+        }
+    },
+
+    nested_value: function(value, columns){
+        // for a given object value and a list of columns names representing the path to the required nested field
+        // the function will get into the object and will return the nested value
+        var res = value;
+        if (columns){
+            _.each(columns, function(c){
+                if (res != null && typeof(res)=='object'){
+                    // get into the next nested level
+                    res = res[c]
+                } else {
+                    // if didn't find some inner column during the path, the function will return null
+                    res = null;
+                }
+             }
+            );
+        }
+        return res;
     },
 
     render_css: function() {
@@ -460,7 +531,7 @@ var DataTable = Backbone.View.extend({
             sort = sort.substr(1);
             asc = false;
         }
-        this.render_sorting($('thead .th_' + sort, this.el), asc);
+        this.render_sorting($('thead .th_' + sort, this.$el), asc);
     },
 
     download: function(filename) {
@@ -470,33 +541,32 @@ var DataTable = Backbone.View.extend({
         collection._save_state_to_url = _.noop()
         collection.page_size = 1000;
         // Display the download modal
-        $('body').append(_.template(self.download_template)());
-        $('.download-modal').modal();
+        self.show_download_modal();
         var cancelled = false;
         $('.download-modal button').on('click', function() {
             cancelled = true;
-            $('.download-modal').modal('hide').detach();
+            self.hide_download_modal();
         })
         // Start building the data
         var titles = _.map($('th', self.el), $.text);
         var rows = [self.as_csv(titles)];
         // This function is called once all pages were loaded
         function save_downloaded_data() {
-            $('.download-modal').modal('hide').detach();
+            self.hide_download_modal();
             var blob = new Blob([rows.join('\n')], {type: 'text/csv'});
             saveAs(blob, filename + '.csv'); // implemented by FileSaver.js
         }
         // This function is called recursively to download all pages
         function download_page(page) {
             collection.page = page;
-            collection.load(function() {
+            collection.load(true, function() {
                 if (cancelled) return;
                 // Update progress bar
                 var progress = 100.0 * collection.metadata.page / collection.metadata.pages_total;
                 $('.download-modal .progress-bar').width(progress + '%');
                 // Convert the models to CSV rows
                 collection.each(function(model) {
-                    var values = self.row_for_model(model);
+                    var values = self.row_for_model(model, true);
                     rows.push(self.as_csv(values));
                 });
                 // Continue to next page or finish
@@ -516,6 +586,15 @@ var DataTable = Backbone.View.extend({
         // Convert an array of values to a CSV string, stripping any HTML tags
         var row = '<div>"' + values.join('","') + '"</div>';
         return $(row).text();
+    },
+
+    show_download_modal() {
+        $('body').append(_.template(self.download_template)());
+        $('.download-modal').modal();
+    },
+
+    hide_download_modal() {
+        $('.download-modal').modal('hide').detach();
     }
 
 });
@@ -667,7 +746,7 @@ var DataTableSimpleQuery = Backbone.View.extend({
     render: function() {
         var html = _.template(this.template)({
             field_name: this.field_name,
-            field_value: this.collection.filters[this.field_name] || ''
+            field_value: this.collection.get_filter_value(this.field_name) || ''
         });
         this.$el.html(html);
     },
@@ -691,7 +770,7 @@ var DataTableSimpleQuery = Backbone.View.extend({
 
     handle_collection_state: function() {
         // Update the contents of the search field
-        $('input', this.el).val(this.collection.filters[this.field_name]);
+        $('input', this.el).val(this.collection.get_filter_value(this.field_name));
     }
 
 });
@@ -713,11 +792,13 @@ var DataTableQueryBuilder = Backbone.View.extend({
         {type: 'in',           to_api: 'in',        nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'not_in',       to_api: 'out',       nb_inputs: 1, multiple: true,  apply_to: []},
         {type: 'between',      to_api: 'between',   nb_inputs: 2, multiple: false, apply_to: ['number', 'datetime']},
-        {type: 'isnull',       to_api: 'isnull',    nb_inputs: 1, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
+        {type: 'is null',       to_api: 'isnull',    nb_inputs: 0, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
+        {type: 'is not null',    to_api: 'isnotnull', nb_inputs: 0, multiple: false, apply_to: ['number', 'string', 'datetime', 'boolean']},
     ],
 
     initialize: function(options) {
         this.filter_fields = options.filter_fields;
+        this.plugins = options.plugins || { 'bt-tooltip-errors': { delay: 100 }, 'filter-description': {} };
         this.collection.on('state:reset state:restore', _.bind(this.handle_collection_state, this));
     },
 
@@ -725,10 +806,7 @@ var DataTableQueryBuilder = Backbone.View.extend({
         this.$el.queryBuilder({
             filters: this.filter_fields,
             operators: this.operators,
-            plugins: {
-                'bt-tooltip-errors': { delay: 100 },
-                'filter-description': {}
-            },
+            plugins: this.plugins,
             allow_empty: true,
             allow_groups: false,
             conditions: ['AND'],
@@ -777,7 +855,13 @@ var DataTableQueryBuilder = Backbone.View.extend({
         var rules = self.get_rules();
         var params = []
         _.each(rules.rules, function(rule) {
-            params.push([rule.id, self.operator_to_api(rule.operator) + ':' + rule.value.toString()]);
+            var value = self.operator_to_api(rule.operator);
+            if (rule.value){
+                value += ':' + rule.value.toString();
+            } else {
+                value += ':1';
+            }
+            params.push([rule.id, value]);
         });
         return params
     },
@@ -791,19 +875,28 @@ var DataTableQueryBuilder = Backbone.View.extend({
     handle_collection_state: function() {
         // Convert the collection's filters into Query Builder rules
         var self = this;
+        var operator, value, key;
         var rules = [];
         var filter_field_names = _.pluck(this.filter_fields, 'id');
-        _.each(self.collection.filters, function(value, key) {
+        _.each(self.collection.filters, function(filter) {
+            key = filter[0];
+            value = filter[1];
             if (_.indexOf(filter_field_names, key) == -1) return; // skip unknown field names
             var colon_location = value.indexOf(':');
             if (colon_location == -1) {
-                operator = 'eq';
+                  operator = 'eq';
             } else {
-                var operator = value.slice(0, colon_location);
-                var value = value.slice(colon_location + 1);
+                operator = value.slice(0, colon_location);
+                value = value.slice(colon_location + 1);
             }
             if (operator == 'in' || operator == 'out' || operator == 'between') {
                 value = value.split(',');
+            }
+            if (operator == 'isnull' || operator == 'isnotnull'){
+                //if value = 0, need to change isnull to isnotnull and vice versa
+                if (value == "0"){
+                    operator = operator == 'isnull' ? 'isnotnull' : 'isnull';
+                }
             }
             rules.push({
                 id: key,
