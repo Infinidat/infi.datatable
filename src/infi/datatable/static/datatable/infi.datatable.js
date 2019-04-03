@@ -589,6 +589,7 @@ var DataTable = Backbone.View.extend({
     },
 
     show_download_modal() {
+        var self = this;
         $('body').append(_.template(self.download_template)());
         $('.download-modal').modal();
     },
