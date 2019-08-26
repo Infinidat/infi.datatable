@@ -270,50 +270,58 @@ var DataTable = Backbone.View.extend({
 
     custom_row_styles: function(model) { return [] },
 
-    row_template:      '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
-                       '    <% _.each(columns, function(column, index) { %>' +
-                       '        <td class="td_<%- column.name.replace(".", "_") %> <%- column.classes %>"><%= values[index] %></td>' +
-                       '    <% }) %>' +
-                       '</tr>',
+    row_template:       _.template(
+                            '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
+                            '    <% _.each(columns, function(column, index) { %>' +
+                            '        <td class="td_<%- column.name.replace(".", "_") %> <%- column.classes %>"><%= values[index] %></td>' +
+                            '    <% }) %>' +
+                            '</tr>'
+                        ),
 
-    settings_template: '<div class="settings" style="position: absolute; right: 20px; top: 15px; z-index: 100;">' +
-                       '    <button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown"><i class="glyphicon glyphicon-th-list"></i></button>' +
-                       '    <div class="panel panel-default dropdown-menu dropdown-menu-right" style="white-space: nowrap; min-width: initial; font-size: inherit">' +
-                       '        <% _.each(columns, function(c) { %>' +
-                       '            <label class="themed-checkbox" style="display: block; padding: 5px 20px 0 10px;">' +
-                       '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"><span></span> <%- column_title(c) %></label>' +
-                       '        <% }) %>' +
-                       '    </div>' +
-                       '</div>',
+    settings_template:  _.template(
+                            '<div class="settings" style="position: absolute; right: 20px; top: 15px; z-index: 100;">' +
+                            '    <button type="button" class="btn btn-default btn-xs dropdown-toggle" data-toggle="dropdown"><i class="glyphicon glyphicon-th-list"></i></button>' +
+                            '    <div class="panel panel-default dropdown-menu dropdown-menu-right" style="white-space: nowrap; min-width: initial; font-size: inherit">' +
+                            '        <% _.each(columns, function(c) { %>' +
+                            '            <label class="themed-checkbox" style="display: block; padding: 5px 20px 0 10px;">' +
+                            '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"><span></span> <%- column_title(c) %></label>' +
+                            '        <% }) %>' +
+                            '    </div>' +
+                            '</div>'
+                        ),
 
-    css_template:      '<% _.each(self.columns, function(c) { %>' +
-                       '    #<%= self.id %> .td_<%- c.name.replace(".", "_") %>, #<%= self.id %> .th_<%- c.name.replace(".", "_") %> {' +
-                       '        display: <% print(self.column_visible(c) ? "table-cell" : "none") %>;' +
-                       '        width: <%- self.column_width(c) %>;' +
-                       '    }' +
-                       '<% }) %>' +
-                       '.infi-datatable { table-layout: fixed; }' +
-                       '.infi-datatable caption { padding: 0; }' +
-                       '.infi-datatable th .glyphicon-chevron-down { display: none; }' +
-                       '.infi-datatable th .glyphicon-chevron-up { display: none; }' +
-                       '.infi-datatable th.desc .glyphicon-chevron-down { display: inline-block; }' +
-                       '.infi-datatable th.asc .glyphicon-chevron-up { display: inline-block; }',
+    css_template:       _.template(
+                            '<% _.each(self.columns, function(c) { %>' +
+                            '    #<%= self.id %> .td_<%- c.name.replace(".", "_") %>, #<%= self.id %> .th_<%- c.name.replace(".", "_") %> {' +
+                            '        display: <% print(self.column_visible(c) ? "table-cell" : "none") %>;' +
+                            '        width: <%- self.column_width(c) %>;' +
+                            '    }' +
+                            '<% }) %>' +
+                            '.infi-datatable { table-layout: fixed; }' +
+                            '.infi-datatable caption { padding: 0; }' +
+                            '.infi-datatable th .glyphicon-chevron-down { display: none; }' +
+                            '.infi-datatable th .glyphicon-chevron-up { display: none; }' +
+                            '.infi-datatable th.desc .glyphicon-chevron-down { display: inline-block; }' +
+                            '.infi-datatable th.asc .glyphicon-chevron-up { display: inline-block; }'
+                        ),
 
-    download_template: '<div class="modal download-modal" tabindex="-1">' +
-                       '    <div class="modal-dialog modal-sm">' +
-                       '        <div class="modal-content">' +
-                       '            <div class="modal-body">' +
-                       '                <p>Preparing Download</p>' +
-                       '                <div class="progress">' +
-                       '                  <div class="progress-bar progress-bar-striped active"></div>' +
-                       '                </div>' +
-                       '            </div>' +
-                       '            <div class="modal-footer">' +
-                       '                <button type="button" class="btn btn-default">Cancel</button>' +
-                       '            </div>' +
-                       '        </div>' +
-                       '    </div>' +
-                       '</div>    ',
+    download_template: _.template(
+                            '<div class="modal download-modal" tabindex="-1">' +
+                            '    <div class="modal-dialog modal-sm">' +
+                            '        <div class="modal-content">' +
+                            '            <div class="modal-body">' +
+                            '                <p>Preparing Download</p>' +
+                            '                <div class="progress">' +
+                            '                  <div class="progress-bar progress-bar-striped active"></div>' +
+                            '                </div>' +
+                            '            </div>' +
+                            '            <div class="modal-footer">' +
+                            '                <button type="button" class="btn btn-default">Cancel</button>' +
+                            '            </div>' +
+                            '        </div>' +
+                            '    </div>' +
+                            '</div>    '
+                        ),
 
     initialize: function(options) {
         var self = this;
@@ -343,7 +351,7 @@ var DataTable = Backbone.View.extend({
 
     render_caption: function() {
         var self = this;
-        var settings = _.template(self.settings_template)({
+        var settings = self.settings_template({
             columns: self.columns,
             column_title: self.column_title,
             column_visible: _.bind(self.column_visible, self)
@@ -353,10 +361,7 @@ var DataTable = Backbone.View.extend({
 
     render_thead: function() {
         var self = this;
-        var thead = $('thead', self.el);
-        thead.empty();
         var tr = $('<tr/>');
-        thead.append(tr);
         _.each(this.columns, function(column) {
             var title = $('<div/>').html(self.column_title(column));
             var th = $('<th/>').addClass('th_' + column.name.replace('.', '_')).data('column', column.name);
@@ -368,6 +373,7 @@ var DataTable = Backbone.View.extend({
             th.data("default_sort", column.default_sort || 'asc');
             tr.append(th);
         });
+        $('thead', self.el).html(tr);
     },
 
     render_tbody: function() {
@@ -377,20 +383,20 @@ var DataTable = Backbone.View.extend({
             self.render();
         }
         else {
-            tbody.empty();
-            var template = _.template(self.row_template);
+            var html = '';
             self.collection.each(function(model) {
                 var values = self.row_for_model(model);
                 var custom_classes = self.custom_row_styles(model);
                 var rowClassNameExpression = custom_classes ?
                     'class="' + custom_classes.join(' ') + '"' : '';
-                tbody.append(template({
+                html += self.row_template({
                   model: model,
                   columns: self.columns,
                   values: values,
                   rowClassNameExpression: rowClassNameExpression
-                }));
+                });
             });
+            tbody.html(html);
         }
         // Trigger data_rendered event
         self.trigger('data_rendered');
@@ -455,8 +461,7 @@ var DataTable = Backbone.View.extend({
     },
 
     render_css: function() {
-        var template = _.template(this.css_template);
-        this.style.html(template({self: this}));
+        this.style.html(this.css_template({self: this}));
     },
 
     render_sorting: function(th, asc) {
@@ -590,7 +595,7 @@ var DataTable = Backbone.View.extend({
 
     show_download_modal() {
         var self = this;
-        $('body').append(_.template(self.download_template)());
+        $('body').append(self.download_template());
         $('.download-modal').modal();
     },
 
