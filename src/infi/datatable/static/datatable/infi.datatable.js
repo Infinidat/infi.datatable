@@ -271,7 +271,7 @@ var DataTable = Backbone.View.extend({
     custom_row_styles: function(model) { return [] },
 
     row_template:       _.template(
-                            '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
+                            '<tr tabindex="<%- tabindex %>" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                             '    <% _.each(columns, function(column, index) { %>' +
                             '        <td class="td_<%- column.name.replace(".", "_") %> <%- column.classes %>"><%= values[index] %></td>' +
                             '    <% }) %>' +
@@ -328,8 +328,11 @@ var DataTable = Backbone.View.extend({
         self.custom_row_styles = options.custom_row_styles || this.custom_row_styles;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
+        self.allow_row_focus = options.allow_row_focus === undefined ? true : options.allow_row_focus;
         _.each(self.columns, function(column) {
-            self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
+            if (!_.has(self.collection.visibility, column.name)) {
+                self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
+            }
         });
         self.collection.on('reset update', _.bind(self.render_tbody, self));
         self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
@@ -393,7 +396,8 @@ var DataTable = Backbone.View.extend({
                   model: model,
                   columns: self.columns,
                   values: values,
-                  rowClassNameExpression: rowClassNameExpression
+                  rowClassNameExpression: rowClassNameExpression,
+                  tabindex: self.allow_row_focus ? 0 : -1
                 });
             });
             tbody.html(html);
