@@ -1,6 +1,6 @@
 var DataTableCollection = Backbone.Collection.extend({
 
-    sort: '',
+    sort_field: '',
     page: 1,
     default_page_size: 100,
     metadata: {},
@@ -46,7 +46,7 @@ var DataTableCollection = Backbone.Collection.extend({
             params[key] = decoded;
         });
         // Get the parameters we know
-        this.sort = params.sort || this.sort;
+        this.sort_field = params.sort || this.sort_field;
         this.page = parseInt(params.page || this.page);
         if (params.page_size) {
             this.page_size = parseInt(params.page_size);
@@ -65,7 +65,7 @@ var DataTableCollection = Backbone.Collection.extend({
         if (this.loading) {
             return
         }
-        this.sort = '';
+        this.sort_field = '';
         this.page = 1;
         this.page_size = this.default_page_size;
         this.filters = [];
@@ -194,14 +194,14 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     get_request_data: function() {
-        return [['sort', this.sort],
+        return [['sort', this.sort_field],
                 ['page', this.page],
                 ['page_size', this.page_size]].concat(this.filters);
     },
 
     set_sort: function(sort) {
-        if (this.sort != sort) {
-            this.sort = sort;
+        if (this.sort_field != sort) {
+            this.sort_field = sort;
             this.page = 1;
             this.reload(true);
         }
@@ -271,7 +271,7 @@ var DataTable = Backbone.View.extend({
     custom_row_styles: function(model) { return [] },
 
     row_template:       _.template(
-                            '<tr tabindex="0" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
+                            '<tr tabindex="<%- tabindex %>" data-row-id="<%- model.id %>" <%= rowClassNameExpression %>>' +
                             '    <% _.each(columns, function(column, index) { %>' +
                             '        <td class="td_<%- column.name.replace(".", "_") %> <%- column.classes %>"><%= values[index] %></td>' +
                             '    <% }) %>' +
@@ -328,8 +328,11 @@ var DataTable = Backbone.View.extend({
         self.custom_row_styles = options.custom_row_styles || this.custom_row_styles;
         self.columns = options.columns;
         self.row_click_callback = options.row_click_callback || _.noop;
+        self.allow_row_focus = options.allow_row_focus === undefined ? true : options.allow_row_focus;
         _.each(self.columns, function(column) {
-            self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
+            if (!_.has(self.collection.visibility, column.name)) {
+                self.collection.visibility[column.name] = _.has(column, 'visible') ? column.visible : true;
+            }
         });
         self.collection.on('reset update', _.bind(self.render_tbody, self));
         self.collection.on('state:reset state:restore', _.bind(self.handle_collection_state, self));
@@ -393,7 +396,8 @@ var DataTable = Backbone.View.extend({
                   model: model,
                   columns: self.columns,
                   values: values,
-                  rowClassNameExpression: rowClassNameExpression
+                  rowClassNameExpression: rowClassNameExpression,
+                  tabindex: self.allow_row_focus ? 0 : -1
                 });
             });
             tbody.html(html);
@@ -530,7 +534,7 @@ var DataTable = Backbone.View.extend({
 
     handle_collection_state: function() {
         // Mark the sorted column
-        var sort = this.collection.sort;
+        var sort = this.collection.sort_field;
         var asc = true;
         if (sort && sort[0] == '-') {
             sort = sort.substr(1);
