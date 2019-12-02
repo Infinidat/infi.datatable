@@ -1,6 +1,6 @@
 var DataTableCollection = Backbone.Collection.extend({
 
-    sort: '',
+    sort_field: '',
     page: 1,
     default_page_size: 100,
     metadata: {},
@@ -46,7 +46,7 @@ var DataTableCollection = Backbone.Collection.extend({
             params[key] = decoded;
         });
         // Get the parameters we know
-        this.sort = params.sort || this.sort;
+        this.sort_field = params.sort || this.sort_field;
         this.page = parseInt(params.page || this.page);
         if (params.page_size) {
             this.page_size = parseInt(params.page_size);
@@ -65,7 +65,7 @@ var DataTableCollection = Backbone.Collection.extend({
         if (this.loading) {
             return
         }
-        this.sort = '';
+        this.sort_field = '';
         this.page = 1;
         this.page_size = this.default_page_size;
         this.filters = [];
@@ -194,14 +194,14 @@ var DataTableCollection = Backbone.Collection.extend({
     },
 
     get_request_data: function() {
-        return [['sort', this.sort],
+        return [['sort', this.sort_field],
                 ['page', this.page],
                 ['page_size', this.page_size]].concat(this.filters);
     },
 
     set_sort: function(sort) {
-        if (this.sort != sort) {
-            this.sort = sort;
+        if (this.sort_field != sort) {
+            this.sort_field = sort;
             this.page = 1;
             this.reload(true);
         }
@@ -534,7 +534,7 @@ var DataTable = Backbone.View.extend({
 
     handle_collection_state: function() {
         // Mark the sorted column
-        var sort = this.collection.sort;
+        var sort = this.collection.sort_field;
         var asc = true;
         if (sort && sort[0] == '-') {
             sort = sort.substr(1);
