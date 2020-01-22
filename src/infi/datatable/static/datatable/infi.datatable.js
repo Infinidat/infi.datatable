@@ -284,7 +284,10 @@ var DataTable = Backbone.View.extend({
                             '    <div class="panel panel-default dropdown-menu dropdown-menu-right" style="white-space: nowrap; min-width: initial; font-size: inherit">' +
                             '        <% _.each(columns, function(c) { %>' +
                             '            <label class="themed-checkbox" style="display: block; padding: 5px 20px 0 10px;">' +
-                            '                <input type="checkbox" <% if (column_visible(c)) print("checked") %> name="<%- c.name %>"><span></span> <%- column_title(c) %></label>' +
+                            '                <input type="checkbox"' +
+                            '                       <% if (column_visible(c)) print("checked") %>' +
+                            '                       <% if (c.toggleable === false) print("disabled") %>' +
+                            '                       name="<%- c.name %>"><span></span> <%- column_title(c) %></label>' +
                             '        <% }) %>' +
                             '    </div>' +
                             '</div>'

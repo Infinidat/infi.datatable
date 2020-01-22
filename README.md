@@ -105,6 +105,7 @@ and each column can have the following properties:
   If not specified the width will be set to "auto".
 * **visible** - whether the column will be visible by default. The table may have several hidden columns,
   that the user can manually show. Defaults to true.
+* **toggleable** - whether the column's visibility can be toggled. Defaults to true.
 * **sortable** - whether the column can be sorted. Defaults to true.
 * **render** - defines a custom function for rendering the cell's contents to HTML. The function receives an object with
   three properties: `model`, `column` and `value`, and should return the formatted value.
