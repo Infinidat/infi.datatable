@@ -23,10 +23,9 @@ function render_datetime(options) {
 }
 
 function render_relative_datetime(options) {
-    // depends on moment.js
+    // depends on moment.js and assumes the value is in UTC
     if (options.value === undefined || options.value === null) return '';
-    var d = new Date(options.value);
-    return moment(d).fromNow();
+    return moment.utc(options.value).fromNow();
 }
 
 function render_integer(options) {
