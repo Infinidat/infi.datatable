@@ -582,11 +582,11 @@ var DataTable = Backbone.View.extend({
                     rows.push(self.as_csv(values));
                 });
                 // Continue to next page or finish
-                if (collection.metadata.next) {
-                    download_page(page + 1);
+                if (collection.is_last_page()) {
+                    save_downloaded_data()
                 }
                 else {
-                    save_downloaded_data();
+                    download_page(page + 1);
                 }
             });
         };
