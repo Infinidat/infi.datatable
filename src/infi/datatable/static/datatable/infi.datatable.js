@@ -550,8 +550,8 @@ var DataTable = Backbone.View.extend({
         // Clone the collection, so that we can download all pages without affecting the real collection
         var self = this;
         var collection = self.collection.clone();
-        collection._save_state_to_url = _.noop()
         collection.page_size = 1000;
+        collection._save_state_to_url(true);
         // Display the download modal
         self.show_download_modal();
         var cancelled = false;
